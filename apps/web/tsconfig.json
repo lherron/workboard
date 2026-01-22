@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "composite": true,
+    "types": ["node"],
+    "baseUrl": "./",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@/*": ["src/*"],
+      "@webwrkq/shared": ["../../packages/shared/src"],
+      "@webwrkq/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "../../packages/shared/src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

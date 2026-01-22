@@ -1,0 +1,23 @@
+{
+  "name": "@webwrkq/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/dev.js",
+    "start": "bun src/index.js",
+    "lint": "echo 'lint not configured for api'",
+    "typecheck": "echo 'typecheck not configured for api'",
+    "format": "prettier --check .",
+    "format:write": "prettier --write ."
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^2.0.6",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

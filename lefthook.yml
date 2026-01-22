@@ -1,0 +1,40 @@
+# Git hooks configuration
+# Install: lefthook install
+# Docs: https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: false
+  commands:
+    check-md-location:
+      run: |
+        bad_files=$(ls *.md 2>/dev/null | grep -v -E '^(AGENTS|CLAUDE|IMPLEMENTATION_PLAN)\.md$' || true)
+        if [ -n "$bad_files" ]; then
+          echo "Error: Unexpected .md files in root directory:"
+          echo "$bad_files"
+          echo "Only AGENTS.md, CLAUDE.md, and IMPLEMENTATION_PLAN.md are allowed in root. Move others to docs/ or specs/."
+          exit 1
+        fi
+    check-ts-location:
+      run: |
+        bad_files=$(ls *.ts 2>/dev/null || true)
+        if [ -n "$bad_files" ]; then
+          echo "Error: Unexpected .ts files in root directory:"
+          echo "$bad_files"
+          echo "Ad-hoc scripts should be in scripts/."
+          exit 1
+        fi
+    gitleaks:
+      run: gitleaks protect --staged --redact
+    lint:
+      run: bun run lint
+      stage_fixed: true
+    typecheck:
+      run: bun run typecheck
+
+pre-push:
+  parallel: false
+  commands:
+    install:
+      run: bun install
+    test:
+      run: env -u GIT_DIR -u GIT_WORK_TREE bun run test

@@ -1,0 +1,46 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"organizeImports": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "off",
+				"useNodejsImportProtocol": "off"
+			},
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"noLabelWithoutControl": "off",
+				"useButtonType": "off",
+				"noAutofocus": "off",
+				"useSemanticElements": "off",
+				"useKeyWithClickEvents": "off"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "off"
+			},
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "warn"
+			},
+			"complexity": {
+				"noForEach": "off"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"files": {
+		"ignore": ["node_modules", "dist", "build", ".next", "*.json", "*.config.js", "*.config.ts"]
+	},
+	"javascript": {
+		"globals": ["React"]
+	}
+}

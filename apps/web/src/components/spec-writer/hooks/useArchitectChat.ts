@@ -518,7 +518,15 @@ export function useArchitectChat({
 	const sendMessage = useCallback(
 		async (prompt: string) => {
 			const currentSpec = specRef.current;
-			if (!currentSpec || !workspaceId) return;
+			debugLog("[ArchitectChat]", "sendMessage called", {
+				prompt: prompt.slice(0, 50),
+				workspaceId,
+				hasSpec: !!currentSpec,
+			});
+			if (!currentSpec || !workspaceId) {
+				debugLog("[ArchitectChat]", "Early return - missing spec or workspaceId");
+				return;
+			}
 
 			setIsSending(true);
 			setSendError(null);
@@ -563,6 +571,11 @@ Important:
 				// Create or resume session
 				const sessionPolicy = currentSessionId ? "resume" : "new";
 
+				debugLog("[ArchitectChat]", "Calling startDetachedRun", {
+					projectId: workspaceId,
+					sessionPolicy,
+					hasSessionId: !!currentSessionId,
+				});
 				const response = await startDetachedRun({
 					projectId: workspaceId,
 					prompt: fullPrompt,
@@ -573,6 +586,10 @@ Important:
 						model: "opus",
 					},
 					maxTurns: 1,
+				});
+				debugLog("[ArchitectChat]", "startDetachedRun response", {
+					runId: response.runId,
+					sessionId: response.sessionId,
 				});
 
 				// If we created a new session, save the sessionId to spec metadata

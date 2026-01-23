@@ -177,6 +177,8 @@ export function useCpSessionStream({
 	const [error, setError] = useState<Error | null>(null);
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const lastSeqRef = useRef(0);
+	// Track the currently connected sessionId to prevent spurious reconnections
+	const connectedSessionIdRef = useRef<string | null>(null);
 
 	const clear = useCallback(() => {
 		setEntries([]);
@@ -185,15 +187,32 @@ export function useCpSessionStream({
 
 	useEffect(() => {
 		if (!sessionId || !enabled) {
-			clear();
+			// Only clear if we were previously connected
+			if (connectedSessionIdRef.current) {
+				debugLog(
+					`[SSE ${connectedSessionIdRef.current.slice(0, 8)}]`,
+					"Clearing due to disabled/no sessionId",
+				);
+				connectedSessionIdRef.current = null;
+				setEntries([]);
+				lastSeqRef.current = 0;
+			}
 			setIsConnected(false);
 			setIsConnecting(false);
 			setError(null);
 			return;
 		}
 
+		// Skip if already connected to this session
+		if (connectedSessionIdRef.current === sessionId && eventSourceRef.current) {
+			debugLog(`[SSE ${sessionId.slice(0, 8)}]`, "Already connected, skipping reconnect");
+			return;
+		}
+
 		debugLog(`[SSE ${sessionId.slice(0, 8)}]`, "Initializing connection...");
-		clear();
+		connectedSessionIdRef.current = sessionId;
+		setEntries([]);
+		lastSeqRef.current = 0;
 		setIsConnecting(true);
 		setError(null);
 
@@ -292,6 +311,8 @@ export function useCpSessionStream({
 			setIsConnecting(connecting);
 			if (eventSource.readyState === EventSource.CLOSED) {
 				setError(new Error("Connection closed"));
+				// Reset ref so reconnection is possible
+				connectedSessionIdRef.current = null;
 			}
 		};
 
@@ -299,10 +320,11 @@ export function useCpSessionStream({
 			debugLog(`[SSE ${sessionId.slice(0, 8)}]`, "Closing connection");
 			eventSource.close();
 			eventSourceRef.current = null;
+			connectedSessionIdRef.current = null;
 			setIsConnected(false);
 			setIsConnecting(false);
 		};
-	}, [sessionId, enabled, maxEvents, mode, runId, clear]);
+	}, [sessionId, enabled, maxEvents, mode, runId]);
 
 	return {
 		entries,

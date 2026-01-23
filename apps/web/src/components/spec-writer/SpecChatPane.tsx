@@ -14,7 +14,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { RunCard } from "@/components/chat/RunCard";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { detectLiveRun, groupEventsByRun } from "@/lib/chat";
-import { cn } from "@/lib/utils";
+import { cn, debugLog } from "@/lib/utils";
 import type { SpecDocument } from "@workboard/shared";
 import {
 	AlertTriangle,
@@ -172,7 +172,13 @@ export function SpecChatPane({
 	const runGroups = useMemo(() => groupEventsByRun(entries, runs), [entries, runs]);
 
 	// Detect if any run is live
-	const hasLiveRun = useMemo(() => detectLiveRun(runs, entries), [runs, entries]);
+	const hasLiveRun = useMemo(() => {
+		const result = detectLiveRun(runs, entries);
+		if (result) {
+			debugLog("[SpecChatPane]", "hasLiveRun=true", { runCount: runs.length, runs });
+		}
+		return result;
+	}, [runs, entries]);
 
 	// Auto-scroll on new entries
 	const { scrollRef, scrollToBottom } = useAutoScroll({
@@ -183,7 +189,19 @@ export function SpecChatPane({
 	// Handle prompt submission
 	const handleSubmit = useCallback(
 		async (prompt: string) => {
-			if (!prompt.trim() || isSending || hasLiveRun) return;
+			debugLog("[SpecChatPane]", "handleSubmit called", {
+				prompt: prompt.slice(0, 30),
+				isSending,
+				hasLiveRun,
+			});
+			if (!prompt.trim() || isSending || hasLiveRun) {
+				debugLog("[SpecChatPane]", "Early return", {
+					isEmpty: !prompt.trim(),
+					isSending,
+					hasLiveRun,
+				});
+				return;
+			}
 			scrollToBottom();
 			await sendMessage(prompt);
 		},

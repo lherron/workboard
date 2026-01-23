@@ -7,8 +7,10 @@ import {
 	Loader2,
 	RefreshCw,
 	Send,
+	Undo2,
 	Wifi,
 	WifiOff,
+	XCircle,
 	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,6 +24,25 @@ type Props = {
 	onConflict?: () => void;
 };
 
+function loadAutoApplyPreference(): boolean {
+	try {
+		if (typeof window === "undefined") return false;
+		const raw = window.localStorage.getItem("specWriter.autoApplyMutations");
+		return raw === "true";
+	} catch {
+		return false;
+	}
+}
+
+function persistAutoApplyPreference(value: boolean) {
+	try {
+		if (typeof window === "undefined") return;
+		window.localStorage.setItem("specWriter.autoApplyMutations", value ? "true" : "false");
+	} catch {
+		// ignore
+	}
+}
+
 /**
  * Chat message component
  */
@@ -29,10 +50,14 @@ function ChatMessageBubble({
 	message,
 	isStreaming,
 	streamText,
+	onApply,
+	onDiscard,
 }: {
 	message: ChatMessage | null;
 	isStreaming?: boolean;
 	streamText?: string;
+	onApply?: (mutationKey: string) => void;
+	onDiscard?: (mutationKey: string) => void;
 }) {
 	// For streaming state, show partial content
 	if (isStreaming && !message) {
@@ -48,7 +73,8 @@ function ChatMessageBubble({
 	if (!message) return null;
 
 	const isUser = message.role === "user";
-	const hasMutations = message.mutations && message.mutations.length > 0;
+	const hasMutations = message.mutations && message.mutations.length > 0 && message.mutationKey;
+	const mutationStatus = message.mutationStatus?.state;
 
 	return (
 		<div
@@ -74,24 +100,55 @@ function ChatMessageBubble({
 					{formatTimestampShort(message.timestamp)}
 				</span>
 
-				{/* Mutation indicator */}
+				{/* Mutation indicator + actions */}
 				{hasMutations && (
-					<span
-						className={cn(
-							"flex items-center gap-1 text-[10px] font-mono",
-							message.mutationsApplied ? "text-green-500" : "text-warning",
-						)}
-						title={message.mutationsApplied ? "Mutations applied" : "Mutations pending"}
-					>
-						{message.mutationsApplied ? (
-							<>
+					<span className="flex items-center gap-2 text-[10px] font-mono">
+						{mutationStatus === "saved" ? (
+							<span className="flex items-center gap-1 text-green-500">
 								<CheckCircle size={10} />
 								<span>{message.mutations!.length} applied</span>
-							</>
+							</span>
+						) : mutationStatus === "applying" ? (
+							<span className="flex items-center gap-1 text-warning">
+								<Loader2 size={10} className="animate-spin" />
+								<span>applying…</span>
+							</span>
+						) : mutationStatus === "discarded" ? (
+							<span className="flex items-center gap-1 text-muted-foreground/60">
+								<XCircle size={10} />
+								<span>discarded</span>
+							</span>
+						) : mutationStatus === "error" ? (
+							<span
+								className="flex items-center gap-1 text-destructive"
+								title={message.mutationStatus?.error}
+							>
+								<AlertTriangle size={10} />
+								<span>error</span>
+							</span>
 						) : (
-							<>
+							<span className="flex items-center gap-1 text-warning">
 								<Zap size={10} />
-								<span>{message.mutations!.length} mutations</span>
+								<span>{message.mutations!.length} proposed</span>
+							</span>
+						)}
+
+						{mutationStatus === "pending" && message.mutationKey && (
+							<>
+								<button
+									type="button"
+									onClick={() => onApply?.(message.mutationKey!)}
+									className="px-1.5 py-0.5 bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors"
+								>
+									apply
+								</button>
+								<button
+									type="button"
+									onClick={() => onDiscard?.(message.mutationKey!)}
+									className="px-1.5 py-0.5 bg-secondary/40 border border-border/30 text-muted-foreground hover:bg-secondary/60 transition-colors"
+								>
+									discard
+								</button>
 							</>
 						)}
 					</span>
@@ -113,6 +170,7 @@ export function SpecChatPane({
 	onConflict,
 }: Props) {
 	const [inputValue, setInputValue] = useState("");
+	const [autoApply, setAutoApply] = useState(loadAutoApplyPreference);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -126,6 +184,10 @@ export function SpecChatPane({
 		mutationError,
 		sendMessage,
 		isSending,
+		applyMutationsForKey,
+		discardMutationsForKey,
+		canUndo,
+		undoLastApplied,
 		clearMutationError,
 	} = useArchitectChat({
 		workspaceId,
@@ -133,7 +195,13 @@ export function SpecChatPane({
 		onSpecUpdate,
 		onSaveComplete,
 		onConflict,
+		autoApplyMutations: autoApply,
 	});
+
+	// Persist preference
+	useEffect(() => {
+		persistAutoApplyPreference(autoApply);
+	}, [autoApply]);
 
 	// Auto-scroll to bottom on new messages
 	// biome-ignore lint/correctness/useExhaustiveDependencies: messages and currentStreamText trigger scroll
@@ -187,6 +255,7 @@ export function SpecChatPane({
 			<div className="flex items-center justify-between px-4 py-3 border-b border-border/30 flex-shrink-0">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-mono text-muted-foreground">architect</span>
+
 					{/* Connection status */}
 					{hasSession && (
 						<span
@@ -211,12 +280,46 @@ export function SpecChatPane({
 					)}
 				</div>
 
-				{/* Session ID badge */}
-				{hasSession && (
-					<span className="text-[10px] font-mono text-muted-foreground/40 truncate max-w-[100px]">
-						{sessionId.slice(0, 8)}...
-					</span>
-				)}
+				<div className="flex items-center gap-2">
+					{/* Undo */}
+					<button
+						type="button"
+						onClick={() => void undoLastApplied()}
+						disabled={!canUndo}
+						className={cn(
+							"flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono",
+							"bg-secondary/50 border border-border/30 hover:bg-secondary/70 transition-colors",
+							"disabled:opacity-40 disabled:cursor-not-allowed",
+						)}
+						title="Undo last applied mutation batch"
+					>
+						<Undo2 size={10} />
+						<span>undo</span>
+					</button>
+
+					{/* Auto-apply toggle */}
+					<button
+						type="button"
+						onClick={() => setAutoApply((v) => !v)}
+						className={cn(
+							"flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono",
+							autoApply
+								? "bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25"
+								: "bg-secondary/40 border border-border/30 text-muted-foreground hover:bg-secondary/60",
+						)}
+						title={autoApply ? "Auto-apply mutations: ON" : "Auto-apply mutations: OFF"}
+					>
+						<Zap size={10} />
+						<span>auto</span>
+					</button>
+
+					{/* Session ID badge */}
+					{hasSession && (
+						<span className="text-[10px] font-mono text-muted-foreground/40 truncate max-w-[100px]">
+							{sessionId.slice(0, 8)}...
+						</span>
+					)}
+				</div>
 			</div>
 
 			{/* Quick actions (shown when no messages) */}
@@ -261,7 +364,12 @@ export function SpecChatPane({
 				) : (
 					<>
 						{messages.map((msg) => (
-							<ChatMessageBubble key={msg.id} message={msg} />
+							<ChatMessageBubble
+								key={msg.id}
+								message={msg}
+								onApply={(key) => void applyMutationsForKey(key)}
+								onDiscard={discardMutationsForKey}
+							/>
 						))}
 
 						{/* Streaming message */}

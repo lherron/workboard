@@ -33,6 +33,63 @@ const PARSE_DEBOUNCE_MS = 500;
 // Debounce delay for autosave after valid changes (ms)
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
+function computeSpecSignature(spec: SpecDocument): string {
+	// Stable representation for detecting content changes (ignore rev/metadata timestamps)
+	const sections = [...spec.sections]
+		.sort((a, b) => a.order - b.order)
+		.map((section) => ({
+			id: section.id,
+			kind: section.kind,
+			label: section.label,
+			order: section.order,
+			items: [...section.items]
+				.sort((a, b) => a.order - b.order)
+				.map((item) => ({
+					id: item.id,
+					summary: item.summary,
+					body: item.body,
+					status: item.status,
+					order: item.order,
+				})),
+		}));
+
+	return JSON.stringify({
+		title: spec.title,
+		overview: spec.overview,
+		sections,
+	});
+}
+
+function computeSinglePatch(
+	oldText: string,
+	newText: string,
+): { from: number; to: number; insert: string } | null {
+	if (oldText === newText) return null;
+
+	let start = 0;
+	const minLen = Math.min(oldText.length, newText.length);
+	while (start < minLen && oldText.charCodeAt(start) === newText.charCodeAt(start)) {
+		start++;
+	}
+
+	let endOld = oldText.length;
+	let endNew = newText.length;
+	while (
+		endOld > start &&
+		endNew > start &&
+		oldText.charCodeAt(endOld - 1) === newText.charCodeAt(endNew - 1)
+	) {
+		endOld--;
+		endNew--;
+	}
+
+	return {
+		from: start,
+		to: endOld,
+		insert: newText.slice(start, endNew),
+	};
+}
+
 /**
  * Center pane for viewing/editing spec content with CodeMirror 6.
  * Supports bidirectional sync between markdown editor and spec JSON.
@@ -60,6 +117,10 @@ export function SpecEditorPane({
 	const isSyncingFromExternalRef = useRef(false);
 	// Track the last spec ID to detect spec changes
 	const lastSpecIdRef = useRef<string | null>(null);
+
+	// Track if the most recent spec update originated from this editor (to avoid stomping user formatting)
+	const pendingEditorSpecUpdateRef = useRef(false);
+	const lastEditorDrivenSignatureRef = useRef<string | null>(null);
 	// Debounce timers
 	const parseTimerRef = useRef<number | null>(null);
 	const autosaveTimerRef = useRef<number | null>(null);
@@ -109,29 +170,40 @@ export function SpecEditorPane({
 			const result = markdownToSpec(markdownContent, currentSpec);
 			setDiagnostics(result.diagnostics);
 
-			if (result.success && result.spec) {
-				// Merge parsed changes with existing spec
-				const updatedSpec: SpecDocument = {
-					...currentSpec,
-					title: result.spec.title ?? currentSpec.title,
-					overview: result.spec.overview ?? currentSpec.overview,
-					sections: result.spec.sections ?? currentSpec.sections,
-					metadata: {
-						...currentSpec.metadata,
-						updatedAt: Date.now(),
-					},
-				};
-
-				onSpecUpdate(updatedSpec);
-
-				// Schedule autosave
+			if (!result.success || !result.spec) {
+				// Parsing errors should pause autosave to avoid structural data loss.
 				if (autosaveTimerRef.current) {
 					window.clearTimeout(autosaveTimerRef.current);
+					autosaveTimerRef.current = null;
 				}
-				autosaveTimerRef.current = window.setTimeout(() => {
-					handleSave();
-				}, AUTOSAVE_DEBOUNCE_MS);
+				return;
 			}
+
+			// Merge parsed changes with existing spec
+			const updatedSpec: SpecDocument = {
+				...currentSpec,
+				title: result.spec.title ?? currentSpec.title,
+				overview: result.spec.overview ?? currentSpec.overview,
+				sections: result.spec.sections ?? currentSpec.sections,
+				metadata: {
+					...currentSpec.metadata,
+					updatedAt: Date.now(),
+				},
+			};
+
+			// Mark that the next spec update came from the editor so we don't overwrite the user's markdown formatting.
+			lastEditorDrivenSignatureRef.current = computeSpecSignature(updatedSpec);
+			pendingEditorSpecUpdateRef.current = true;
+
+			onSpecUpdate(updatedSpec);
+
+			// Schedule autosave
+			if (autosaveTimerRef.current) {
+				window.clearTimeout(autosaveTimerRef.current);
+			}
+			autosaveTimerRef.current = window.setTimeout(() => {
+				handleSave();
+			}, AUTOSAVE_DEBOUNCE_MS);
 		},
 		[onSpecUpdate, handleSave],
 	);
@@ -233,35 +305,75 @@ export function SpecEditorPane({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Sync editor content when spec changes from external source
+	// Sync editor content when spec changes (including chat mutations) while avoiding formatting feedback loops
 	useEffect(() => {
 		const view = editorViewRef.current;
 		if (!view || !spec) return;
 
-		// Only sync if spec ID changed (different spec loaded) or content changed externally
-		const specChanged = lastSpecIdRef.current !== spec.id;
+		const specIdChanged = lastSpecIdRef.current !== spec.id;
 		lastSpecIdRef.current = spec.id;
 
-		if (specChanged) {
+		const incomingSignature = computeSpecSignature(spec);
+		const currentDoc = view.state.doc.toString();
+		const nextDoc = specToMarkdown(spec);
+
+		if (specIdChanged) {
 			isSyncingFromExternalRef.current = true;
-			const newContent = specToMarkdown(spec);
 
 			view.dispatch({
 				changes: {
 					from: 0,
 					to: view.state.doc.length,
-					insert: newContent,
+					insert: nextDoc,
 				},
 			});
 
 			// Reset diagnostics on spec change
 			setDiagnostics([]);
 
-			// Small delay before allowing changes to prevent feedback loop
+			lastEditorDrivenSignatureRef.current = incomingSignature;
+			pendingEditorSpecUpdateRef.current = false;
+
 			requestAnimationFrame(() => {
 				isSyncingFromExternalRef.current = false;
 			});
+			return;
 		}
+
+		// If this spec update was triggered by our own editor parse, don't overwrite the user's markdown formatting.
+		if (pendingEditorSpecUpdateRef.current) {
+			pendingEditorSpecUpdateRef.current = false;
+			lastEditorDrivenSignatureRef.current = incomingSignature;
+			return;
+		}
+
+		// Ignore changes that don't affect the spec content (rev/metadata-only updates)
+		if (
+			lastEditorDrivenSignatureRef.current &&
+			lastEditorDrivenSignatureRef.current === incomingSignature
+		) {
+			return;
+		}
+
+		if (currentDoc === nextDoc) {
+			lastEditorDrivenSignatureRef.current = incomingSignature;
+			return;
+		}
+
+		isSyncingFromExternalRef.current = true;
+
+		const patch = computeSinglePatch(currentDoc, nextDoc);
+		if (patch) {
+			view.dispatch({ changes: patch });
+		}
+
+		// Reset diagnostics on external content change
+		setDiagnostics([]);
+		lastEditorDrivenSignatureRef.current = incomingSignature;
+
+		requestAnimationFrame(() => {
+			isSyncingFromExternalRef.current = false;
+		});
 	}, [spec]);
 
 	// Keyboard shortcut for save (backup for non-editor focus)
@@ -381,7 +493,7 @@ export function SpecEditorPane({
 					<button
 						type="button"
 						onClick={handleSave}
-						disabled={!isDirty || isSaving || isConflict}
+						disabled={!isDirty || isSaving || isConflict || hasErrors}
 						className="flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 						title="Save (Cmd/Ctrl+S)"
 					>
@@ -431,6 +543,9 @@ export function SpecEditorPane({
 						))}
 						{diagnostics.length > 3 && (
 							<div className="opacity-70">...and {diagnostics.length - 3} more</div>
+						)}
+						{hasErrors && (
+							<div className="mt-1 opacity-70">Autosave paused until errors are fixed.</div>
 						)}
 					</div>
 				</div>

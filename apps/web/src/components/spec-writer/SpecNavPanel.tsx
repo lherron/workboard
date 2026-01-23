@@ -1,7 +1,8 @@
 import type { ApiClientError } from "@/api/client";
 import type { SpecManifest } from "@workboard/shared";
 import { Copy, FileText, Plus, Search, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SPEC_TEMPLATES, type SpecTemplateId } from "./lib/templates";
 
 /**
  * Delete confirmation dialog component.
@@ -89,6 +90,135 @@ function DeleteConfirmDialog({
 	);
 }
 
+/**
+ * Create spec dialog component.
+ */
+function CreateSpecDialog({
+	isCreating,
+	onConfirm,
+	onCancel,
+}: {
+	isCreating: boolean;
+	onConfirm: (title: string, templateId: SpecTemplateId) => void;
+	onCancel: () => void;
+}) {
+	const [title, setTitle] = useState("");
+	const [templateId, setTemplateId] = useState<SpecTemplateId>(SPEC_TEMPLATES[0].id);
+
+	// Handle escape/enter keys
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				onCancel();
+			} else if (e.key === "Enter") {
+				// Avoid grabbing Enter from other focused elements like textarea; this is fine for modal.
+				e.preventDefault();
+				if (title.trim()) onConfirm(title.trim(), templateId);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [onCancel, onConfirm, templateId, title]);
+
+	const selected = useMemo(() => SPEC_TEMPLATES.find((t) => t.id === templateId), [templateId]);
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[3px]">
+			<div
+				className="w-full max-w-lg border border-border bg-background font-mono animate-in fade-in zoom-in-95 duration-150"
+				role="dialog"
+				aria-labelledby="create-spec-title"
+			>
+				{/* Header */}
+				<div className="flex items-center justify-between border-b border-border px-4 py-3 bg-secondary/50">
+					<h2
+						id="create-spec-title"
+						className="text-[13px] font-medium tracking-wide text-foreground"
+					>
+						<span className="text-primary/70">›</span> new spec
+					</h2>
+					<button
+						onClick={onCancel}
+						className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+					>
+						esc
+					</button>
+				</div>
+
+				{/* Content */}
+				<div className="p-5 space-y-4">
+					{/* Title */}
+					<div className="space-y-1">
+						<div className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+							title
+						</div>
+						<input
+							type="text"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+							placeholder="Spec title..."
+							autoFocus
+							className="w-full px-3 py-2 text-[13px] font-mono bg-background/50 border border-border/50 rounded-none focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/40"
+						/>
+					</div>
+
+					{/* Templates */}
+					<div className="space-y-2">
+						<div className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+							template
+						</div>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+							{SPEC_TEMPLATES.map((t) => (
+								<button
+									key={t.id}
+									type="button"
+									onClick={() => setTemplateId(t.id)}
+									className={[
+										"px-3 py-2 text-left border transition-colors",
+										templateId === t.id
+											? "bg-primary/10 border-primary/40"
+											: "bg-secondary/20 border-border/50 hover:bg-secondary/40 hover:border-border/70",
+									].join(" ")}
+								>
+									<div className="text-[12px] text-foreground/90">{t.name}</div>
+									<div className="text-[10px] text-muted-foreground/60 mt-0.5 leading-relaxed">
+										{t.description}
+									</div>
+								</button>
+							))}
+						</div>
+
+						{selected?.hint && (
+							<div className="text-[11px] text-muted-foreground/60 bg-secondary/20 border border-border/50 px-3 py-2">
+								{selected.hint}
+							</div>
+						)}
+					</div>
+
+					{/* Actions */}
+					<div className="flex justify-end gap-2 pt-1">
+						<button
+							type="button"
+							onClick={onCancel}
+							className="px-3 py-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground border border-border/50 hover:bg-secondary/50 transition-colors"
+						>
+							cancel
+						</button>
+						<button
+							type="button"
+							onClick={() => title.trim() && onConfirm(title.trim(), templateId)}
+							disabled={!title.trim() || isCreating}
+							className="px-3 py-1.5 text-[11px] font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50"
+						>
+							{isCreating ? "..." : "create"}
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 type Props = {
 	workspaceId: string;
 	specs: SpecManifest[];
@@ -98,7 +228,7 @@ type Props = {
 	isDirty: boolean;
 	isCreating: boolean;
 	onSelectSpec: (slug: string) => void;
-	onCreateSpec: (title: string) => void;
+	onCreateSpec: (title: string, templateId: SpecTemplateId) => void;
 	onDeleteSpec: (slug: string) => void;
 	onCopyMarkdown: () => void;
 	onRetry: () => void;
@@ -121,17 +251,17 @@ export function SpecNavPanel({
 	onCopyMarkdown,
 	onRetry,
 }: Props) {
-	const [showCreateInput, setShowCreateInput] = useState(false);
-	const [newTitle, setNewTitle] = useState("");
+	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [deleteConfirm, setDeleteConfirm] = useState<{ slug: string; title: string } | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
-	const handleCreate = useCallback(() => {
-		if (!newTitle.trim()) return;
-		onCreateSpec(newTitle.trim());
-		setNewTitle("");
-		setShowCreateInput(false);
-	}, [newTitle, onCreateSpec]);
+	const handleCreate = useCallback(
+		(title: string, templateId: SpecTemplateId) => {
+			onCreateSpec(title, templateId);
+			setShowCreateModal(false);
+		},
+		[onCreateSpec],
+	);
 
 	const handleDeleteClick = useCallback((slug: string, title: string) => {
 		setDeleteConfirm({ slug, title });
@@ -158,6 +288,15 @@ export function SpecNavPanel({
 
 	return (
 		<>
+			{/* Create modal */}
+			{showCreateModal && (
+				<CreateSpecDialog
+					isCreating={isCreating}
+					onConfirm={handleCreate}
+					onCancel={() => setShowCreateModal(false)}
+				/>
+			)}
+
 			{/* Delete confirmation dialog */}
 			{deleteConfirm && (
 				<DeleteConfirmDialog
@@ -180,42 +319,14 @@ export function SpecNavPanel({
 
 				{/* Actions */}
 				<div className="px-3 py-2 border-b border-border/20 space-y-1">
-					{showCreateInput ? (
-						<div className="flex items-center gap-1">
-							<input
-								type="text"
-								value={newTitle}
-								onChange={(e) => setNewTitle(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") handleCreate();
-									if (e.key === "Escape") {
-										setShowCreateInput(false);
-										setNewTitle("");
-									}
-								}}
-								placeholder="Spec title..."
-								autoFocus
-								className="flex-1 px-2 py-1 text-xs font-mono bg-background/50 border border-border/50 rounded-none focus:outline-none focus:border-primary/50"
-							/>
-							<button
-								type="button"
-								onClick={handleCreate}
-								disabled={!newTitle.trim() || isCreating}
-								className="px-2 py-1 text-xs font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50"
-							>
-								{isCreating ? "..." : "add"}
-							</button>
-						</div>
-					) : (
-						<button
-							type="button"
-							onClick={() => setShowCreateInput(true)}
-							className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-						>
-							<Plus size={14} />
-							<span>new spec</span>
-						</button>
-					)}
+					<button
+						type="button"
+						onClick={() => setShowCreateModal(true)}
+						className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+					>
+						<Plus size={14} />
+						<span>new spec</span>
+					</button>
 
 					{selectedSlug && (
 						<button

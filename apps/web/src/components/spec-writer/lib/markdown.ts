@@ -66,27 +66,29 @@ export function specToMarkdown(spec: SpecDocument): string {
 				lines.push("");
 			}
 		}
+
+		lines.push("");
 	}
 
-	return lines.join("\n");
+	return lines.join("\n").trim();
 }
 
-/**
- * Section kind to label mapping
- */
+// Section label to kind mapping
 const SECTION_LABELS: Record<string, SpecSectionKind> = {
 	goals: "goals",
+	goal: "goals",
 	"non-goals": "non-goals",
 	"non goals": "non-goals",
 	nongoals: "non-goals",
 	features: "features",
+	feature: "features",
 	constraints: "constraints",
+	constraint: "constraints",
 	"open questions": "open-questions",
-	"open-questions": "open-questions",
+	"open question": "open-questions",
 	questions: "open-questions",
 	"data models": "data-models",
-	"data-models": "data-models",
-	datamodels: "data-models",
+	"data model": "data-models",
 	integrations: "integrations",
 	dependencies: "dependencies",
 	risks: "risks",
@@ -102,6 +104,23 @@ function parseSectionLabel(label: string): SpecSectionKind | null {
 	return SECTION_LABELS[normalized] || null;
 }
 
+const ALL_SECTION_KINDS: readonly SpecSectionKind[] = [
+	"goals",
+	"non-goals",
+	"features",
+	"constraints",
+	"open-questions",
+	"data-models",
+	"integrations",
+	"dependencies",
+	"risks",
+	"testing",
+] as const;
+
+function isSectionKind(value: string): value is SpecSectionKind {
+	return (ALL_SECTION_KINDS as readonly string[]).includes(value);
+}
+
 /**
  * Parse item status from markdown
  */
@@ -114,19 +133,39 @@ function parseItemStatus(text: string): "draft" | "approved" | "deferred" {
 }
 
 /**
- * Parse markdown to a spec document structure.
- * This is a tolerant parser that tries to preserve as much structure as possible.
- *
- * Note: This returns partial updates to merge with existing spec.
- * The caller should handle merging with the canonical JSON.
- */
-/**
  * Scroll target for editor navigation from graph clicks.
  */
 export type ScrollTarget = {
 	type: "root" | "section" | "item";
 	id: string;
 };
+
+function slugifyHeading(text: string): string {
+	return text
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
+function parseHeadingWithMeta(raw: string): { label: string; meta: Record<string, string> } {
+	// Supports: "Label <!-- kind:goals id:goals -->" (comment at end)
+	const metaMatch = raw.match(/^(.*?)\s*<!--\s*([\s\S]*?)\s*-->\s*$/);
+	if (!metaMatch) {
+		return { label: raw.trim(), meta: {} };
+	}
+
+	const label = metaMatch[1].trim();
+	const metaStr = metaMatch[2].trim();
+	const meta: Record<string, string> = {};
+
+	const kvRe = /(\w+)\s*[:=]\s*([^\s]+)/g;
+	for (const m of metaStr.matchAll(kvRe)) {
+		meta[m[1].toLowerCase()] = m[2];
+	}
+
+	return { label, meta };
+}
 
 /**
  * Find the line number for a section or item in markdown.
@@ -146,12 +185,26 @@ export function findTargetLine(markdown: string, target: ScrollTarget): number |
 			}
 		} else if (target.type === "section") {
 			// Section heading: ## Label
-			// The target.id is the section.id (e.g., "features", "goals")
 			if (line.startsWith("## ") && !line.startsWith("### ")) {
-				const label = line.slice(3).trim().toLowerCase();
+				const raw = line.slice(3).trim();
+				const { label, meta } = parseHeadingWithMeta(raw);
+
+				// Prefer explicit id/kind markers, if present
+				if (meta.id && meta.id.toLowerCase() === target.id.toLowerCase()) {
+					return lineNum;
+				}
+				if (meta.kind && meta.kind.toLowerCase() === target.id.toLowerCase()) {
+					return lineNum;
+				}
+
 				const normalizedTarget = target.id.toLowerCase().replace(/-/g, " ");
+				const normalizedLabel = label.trim().toLowerCase();
+
 				// Match on normalized label or id
-				if (label === normalizedTarget || label.replace(/\s+/g, "-") === target.id.toLowerCase()) {
+				if (
+					normalizedLabel === normalizedTarget ||
+					slugifyHeading(normalizedLabel) === target.id.toLowerCase()
+				) {
 					return lineNum;
 				}
 			}
@@ -159,7 +212,6 @@ export function findTargetLine(markdown: string, target: ScrollTarget): number |
 			// Item heading: ### ID: Summary
 			if (line.startsWith("### ")) {
 				const headingText = line.slice(4).trim();
-				// Check if the line starts with the item ID
 				if (headingText.toUpperCase().startsWith(`${target.id.toUpperCase()}:`)) {
 					return lineNum;
 				}
@@ -170,9 +222,19 @@ export function findTargetLine(markdown: string, target: ScrollTarget): number |
 	return null;
 }
 
+/**
+ * Parse markdown to a spec document structure.
+ *
+ * This parser is intentionally *safe*: if a formatting issue would cause a structural drop
+ * (e.g. invalid item headings), it emits an "error" diagnostic so callers can block autosave.
+ */
 export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): MarkdownParseResult {
 	const lines = markdown.split("\n");
 	const diagnostics: ParseDiagnostic[] = [];
+
+	const existingSectionsByOrder = existingSpec
+		? [...existingSpec.sections].sort((a, b) => a.order - b.order)
+		: [];
 
 	let title = existingSpec?.title || "";
 	let overview = "";
@@ -218,21 +280,47 @@ export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): M
 				sections.push(currentSection);
 			}
 
-			const label = line.slice(3).trim();
-			const kind = parseSectionLabel(label);
+			const rawHeading = line.slice(3).trim();
+			const { label, meta } = parseHeadingWithMeta(rawHeading);
 
-			if (!kind) {
+			let kind: SpecSectionKind | null = null;
+			const metaKind = (meta.kind || "").toLowerCase();
+			if (metaKind && isSectionKind(metaKind)) {
+				kind = metaKind;
+			} else {
+				kind = parseSectionLabel(label);
+			}
+
+			let inferredFromExisting = false;
+			if (!kind && existingSectionsByOrder[sectionOrder]) {
+				kind = existingSectionsByOrder[sectionOrder].kind;
+				inferredFromExisting = true;
 				diagnostics.push({
 					line: lineNum,
-					message: `Unknown section: "${label}"`,
+					message: `Unrecognized section label: "${label}". Assuming this is "${existingSectionsByOrder[sectionOrder].label}" (${kind}).`,
 					severity: "warning",
 				});
 			}
 
+			if (!kind) {
+				diagnostics.push({
+					line: lineNum,
+					message: `Unknown section: "${label}". Use a supported section heading (e.g., Goals, Features, Constraints, Open Questions).`,
+					severity: "error",
+				});
+			}
+
+			const safeKind = (kind || "features") as SpecSectionKind;
+			const id =
+				meta.id ||
+				(inferredFromExisting && existingSectionsByOrder[sectionOrder]
+					? existingSectionsByOrder[sectionOrder].id
+					: safeKind || slugifyHeading(label));
+
 			currentSection = {
-				id: kind || label.toLowerCase().replace(/\s+/g, "-"),
-				kind: kind || "features", // Default to features for unknown sections
-				label: label,
+				id,
+				kind: safeKind,
+				label,
 				order: sectionOrder++,
 				items: [],
 			};
@@ -245,7 +333,7 @@ export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): M
 		if (line.startsWith("### ")) {
 			// Save previous item body
 			if (currentItem && bodyLines.length > 0) {
-				currentItem.body = bodyLines.join("\n").trim();
+				currentItem.body = bodyLines.join("\\n").trim();
 				bodyLines = [];
 			}
 
@@ -272,15 +360,15 @@ export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): M
 				} else {
 					diagnostics.push({
 						line: lineNum,
-						message: "Item found outside of a section",
-						severity: "warning",
+						message: "Item found outside of a section. Add a '## Section' heading above it.",
+						severity: "error",
 					});
 				}
 			} else {
 				diagnostics.push({
 					line: lineNum,
-					message: `Invalid item format: "${headingText}". Expected "ID: Summary" format.`,
-					severity: "warning",
+					message: `Invalid item format: "${headingText}". Expected "ID: Summary" (e.g., "F-001: Add login").`,
+					severity: "error",
 				});
 			}
 			continue;
@@ -292,14 +380,14 @@ export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): M
 		} else if (currentItem) {
 			bodyLines.push(line);
 		} else if (currentSection) {
-			// Content between section heading and first item - could be section description
-			// For now, ignore it
+			// Content between section heading and first item - could be a section description.
+			// The schema does not currently support section bodies, so we ignore it.
 		}
 	}
 
 	// Save final item body
 	if (currentItem && bodyLines.length > 0) {
-		currentItem.body = bodyLines.join("\n").trim();
+		currentItem.body = bodyLines.join("\\n").trim();
 	}
 
 	// Save final section
@@ -309,7 +397,16 @@ export function markdownToSpec(markdown: string, existingSpec?: SpecDocument): M
 
 	// Save overview if still collecting
 	if (inOverview && overviewLines.length > 0) {
-		overview = overviewLines.join("\n").trim();
+		overview = overviewLines.join("\\n").trim();
+	}
+
+	// Guardrail: avoid accidental wipe of sections
+	if (existingSpec && sections.length === 0) {
+		diagnostics.push({
+			line: 1,
+			message: "No sections found. Specs require at least one '## Section' heading.",
+			severity: "error",
+		});
 	}
 
 	return {

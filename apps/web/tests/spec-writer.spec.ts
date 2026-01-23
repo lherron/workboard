@@ -303,8 +303,8 @@ test.describe("Spec Writer Nav Panel", () => {
 		// Should show the title input
 		await expect(page.locator('input[placeholder="Spec title..."]')).toBeVisible({ timeout: 5000 });
 
-		// Should show the "add" button
-		await expect(page.locator('button:has-text("add")')).toBeVisible();
+		// Should show the "create" button
+		await expect(page.locator('button:has-text("create")')).toBeVisible();
 	});
 
 	test("escape key cancels new spec creation", async ({ page }) => {
@@ -400,7 +400,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 
 		const titleInput = page.locator('input[placeholder="Spec title..."]');
 		await titleInput.fill(uniqueTitle);
-		await page.locator('button:has-text("add")').click();
+		await page.locator('button:has-text("create")').click();
 
 		// Wait for navigation to new spec
 		await page.waitForURL(/\/spec-writer\//, { timeout: 10000 });

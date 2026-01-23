@@ -11,14 +11,28 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyMutations } from "../lib/patch";
 
+export type MutationStatus = {
+	state: "pending" | "discarded" | "applying" | "saved" | "error";
+	error?: string;
+	isConflict?: boolean;
+};
+
 export type ChatMessage = {
 	id: string;
 	role: "user" | "assistant";
+	/** Content intended for display (mutations JSON stripped) */
 	content: string;
 	timestamp: number;
 	runId?: string;
+
+	/** Parsed mutations (if any) */
 	mutations?: SpecMutation[];
-	mutationsApplied?: boolean;
+
+	/** Stable key for this mutation batch (runId + message id) */
+	mutationKey?: string;
+
+	/** Per-message mutation lifecycle */
+	mutationStatus?: MutationStatus;
 };
 
 export type UseArchitectChatOptions = {
@@ -27,12 +41,19 @@ export type UseArchitectChatOptions = {
 	onSpecUpdate: (spec: SpecDocument) => void;
 	onSaveComplete: (spec: SpecDocument) => void;
 	onConflict?: () => void;
+
+	/**
+	 * When true, mutations are applied & saved automatically as soon as they arrive.
+	 * When false, mutations are surfaced as \"pending\" and require explicit user action.
+	 */
+	autoApplyMutations?: boolean;
 };
 
 export type MutationSaveError = {
 	message: string;
 	status?: number;
 	isConflict: boolean;
+	mutationKey?: string;
 };
 
 export type UseArchitectChatResult = {
@@ -42,34 +63,55 @@ export type UseArchitectChatResult = {
 	isStreaming: boolean;
 	currentStreamText: string;
 	error: Error | null;
+
+	/** Most recent mutation save error (also reflected per-message in mutationStatus) */
 	mutationError: MutationSaveError | null;
+
 	sendMessage: (prompt: string) => Promise<void>;
 	isSending: boolean;
+
+	/** Review/controls */
+	applyMutationsForKey: (mutationKey: string) => Promise<void>;
+	discardMutationsForKey: (mutationKey: string) => void;
+	canUndo: boolean;
+	undoLastApplied: () => Promise<void>;
+
 	clearMutationError: () => void;
 };
 
 /**
  * Extract mutations from assistant message content.
- * Looks for a JSON block containing a "mutations" array.
+ * Returns validated block + content with the mutation block removed (for display).
  */
-function extractMutations(content: string): SpecMutationsBlock | null {
-	// Look for JSON blocks with mutations
-	// Match ```json blocks or bare JSON objects with mutations key
-	const patterns = [
+function extractMutationsWithCleanup(
+	content: string,
+): { block: SpecMutationsBlock; cleanedContent: string } | null {
+	// Match ```json blocks or generic ``` blocks, plus a bare JSON object at end.
+	const patterns: RegExp[] = [
 		/```json\s*\n?([\s\S]*?)\n?```/g,
 		/```\s*\n?([\s\S]*?)\n?```/g,
-		/(\{[\s\S]*?"mutations"[\s\S]*?\})\s*$/,
+		/(\{[\s\S]*?"mutations"[\s\S]*?\})\s*$/g,
 	];
+
+	let best: { block: SpecMutationsBlock; start: number; end: number; raw: string } | null = null;
 
 	for (const pattern of patterns) {
 		const matches = content.matchAll(pattern);
 		for (const match of matches) {
 			const jsonStr = match[1];
+			const matchIndex = (match as unknown as { index?: number }).index ?? 0;
+			const raw = match[0];
+
 			try {
 				const parsed = JSON.parse(jsonStr);
 				const validated = specMutationsBlockSchema.safeParse(parsed);
 				if (validated.success && validated.data.mutations.length > 0) {
-					return validated.data;
+					const start = matchIndex;
+					const end = matchIndex + raw.length;
+
+					if (!best || end > best.end) {
+						best = { block: validated.data, start, end, raw };
+					}
 				}
 			} catch {
 				// Not valid JSON, continue
@@ -77,7 +119,10 @@ function extractMutations(content: string): SpecMutationsBlock | null {
 		}
 	}
 
-	return null;
+	if (!best) return null;
+
+	const cleanedContent = (content.slice(0, best.start) + content.slice(best.end)).trim();
+	return { block: best.block, cleanedContent };
 }
 
 /**
@@ -105,17 +150,48 @@ function buildMessagesFromEntries(entries: SessionStreamEntry[]): ChatMessage[] 
 				};
 			}
 
-			const mutations = extractMutations(item.content);
+			const extracted = extractMutationsWithCleanup(item.content);
 			return {
 				id: item.id,
 				role: "assistant" as const,
-				content: item.content,
+				content: extracted?.cleanedContent ?? item.content,
 				timestamp: item.occurredAt,
 				runId: item.runId,
-				mutations: mutations?.mutations,
+				mutations: extracted?.block.mutations,
 			};
 		})
 		.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function cloneSpec<T>(spec: T): T {
+	// Spec documents are JSON-serializable; use JSON clone for maximum compatibility.
+	return JSON.parse(JSON.stringify(spec)) as T;
+}
+
+function buildSpecOutline(spec: SpecDocument, maxItemsPerSection = 12): string {
+	const sections = [...spec.sections].sort((a, b) => a.order - b.order);
+
+	const lines: string[] = [];
+	for (const section of sections) {
+		const items = [...section.items].sort((a, b) => a.order - b.order).slice(0, maxItemsPerSection);
+
+		if (items.length === 0) {
+			lines.push(`- ${section.kind} (${section.label}): (empty)`);
+			continue;
+		}
+
+		lines.push(
+			`- ${section.kind} (${section.label}): ${items
+				.map((i) => `${i.id} ${i.summary}`.trim())
+				.join("; ")}`,
+		);
+
+		if (section.items.length > items.length) {
+			lines.push(`  … ${section.items.length - items.length} more`);
+		}
+	}
+
+	return lines.join("\n");
 }
 
 /**
@@ -128,14 +204,21 @@ export function useArchitectChat({
 	onSpecUpdate,
 	onSaveComplete,
 	onConflict,
+	autoApplyMutations = false,
 }: UseArchitectChatOptions): UseArchitectChatResult {
 	const [isSending, setIsSending] = useState(false);
 	const [currentStreamText, setCurrentStreamText] = useState("");
 	const [sendError, setSendError] = useState<Error | null>(null);
 	const [mutationError, setMutationError] = useState<MutationSaveError | null>(null);
 
-	// Track which mutations have been applied
-	const appliedMutationsRef = useRef<Set<string>>(new Set());
+	// Per-message status map (mutationKey -> status)
+	const [mutationStatuses, setMutationStatuses] = useState<Record<string, MutationStatus>>({});
+
+	// Undo stack for last applied mutation batches (LIFO)
+	const [undoStack, setUndoStack] = useState<Array<{ mutationKey: string; before: SpecDocument }>>(
+		[],
+	);
+
 	// Track current spec for mutation application
 	const specRef = useRef<SpecDocument | null>(null);
 	specRef.current = spec;
@@ -156,24 +239,45 @@ export function useArchitectChat({
 		mode: "watch",
 	});
 
-	// Build messages from entries
+	// Build base messages from entries (mutations parsed & cleaned)
+	const baseMessages = useMemo(() => buildMessagesFromEntries(entries), [entries]);
+
+	// Attach stable mutationKey + status to messages
 	const messages = useMemo(() => {
-		const msgs = buildMessagesFromEntries(entries);
-		// Mark messages with applied mutations
-		return msgs.map((msg) => {
-			if (msg.mutations && msg.runId) {
+		return baseMessages.map((msg) => {
+			if (msg.role === "assistant" && msg.mutations && msg.runId) {
 				const mutationKey = `${msg.runId}-${msg.id}`;
-				msg.mutationsApplied = appliedMutationsRef.current.has(mutationKey);
+				const mutationStatus = mutationStatuses[mutationKey] || { state: "pending" };
+				return { ...msg, mutationKey, mutationStatus };
 			}
 			return msg;
 		});
-	}, [entries]);
+	}, [baseMessages, mutationStatuses]);
+
+	// Initialize statuses for newly seen mutation messages
+	useEffect(() => {
+		setMutationStatuses((prev) => {
+			let changed = false;
+			const next = { ...prev };
+
+			for (const msg of baseMessages) {
+				if (msg.role === "assistant" && msg.mutations && msg.runId) {
+					const key = `${msg.runId}-${msg.id}`;
+					if (!next[key]) {
+						next[key] = { state: "pending" };
+						changed = true;
+					}
+				}
+			}
+
+			return changed ? next : prev;
+		});
+	}, [baseMessages]);
 
 	// Check if currently streaming (has active run)
 	const isStreaming = useMemo(() => {
 		const lastEntry = entries[entries.length - 1];
 		if (!lastEntry) return false;
-		const _event = lastEntry.event;
 		// Streaming if we've seen run_started but not run_completed/failed/cancelled
 		const runEvents = entries.filter((e) => e.runId === lastEntry.runId);
 		const hasStarted = runEvents.some((e) => e.event.type === "run_started");
@@ -196,59 +300,169 @@ export function useArchitectChat({
 		setCurrentStreamText(buildStreamingAssistantText(entries, lastEntry.runId));
 	}, [entries, isStreaming]);
 
-	// Apply mutations when new assistant messages arrive
+	const mutationByKey = useMemo(() => {
+		const map = new Map<string, SpecMutation[]>();
+		for (const msg of messages) {
+			if (msg.mutationKey && msg.mutations) {
+				map.set(msg.mutationKey, msg.mutations);
+			}
+		}
+		return map;
+	}, [messages]);
+
+	const applyMutationsForKey = useCallback(
+		async (mutationKey: string) => {
+			const currentSpec = specRef.current;
+			const mutations = mutationByKey.get(mutationKey);
+
+			if (!currentSpec || !mutations || mutations.length === 0) return;
+
+			// Don't re-apply if already in a terminal state
+			const currentStatus = mutationStatuses[mutationKey];
+			if (currentStatus?.state === "saved" || currentStatus?.state === "discarded") return;
+			if (currentStatus?.state === "applying") return;
+
+			setMutationStatuses((prev) => ({
+				...prev,
+				[mutationKey]: { state: "applying" },
+			}));
+
+			// Snapshot for undo
+			setUndoStack((prev) => [...prev, { mutationKey, before: cloneSpec(currentSpec) }]);
+
+			// Apply mutations locally
+			debugLog("[ArchitectChat]", "Applying mutations:", mutations);
+			const updatedSpec = applyMutations(currentSpec, mutations);
+			onSpecUpdate(updatedSpec);
+
+			try {
+				const response = await updateWorkspaceSpec(
+					workspaceId,
+					updatedSpec.slug,
+					updatedSpec,
+					currentSpec.rev,
+				);
+
+				setMutationError(null);
+				setMutationStatuses((prev) => ({
+					...prev,
+					[mutationKey]: { state: "saved" },
+				}));
+				onSaveComplete(response.spec);
+			} catch (err) {
+				console.error("[ArchitectChat] Failed to save after mutation:", err);
+				const apiError = err as { message?: string; status?: number };
+				const isConflict = apiError.status === 409;
+
+				setMutationError({
+					message: apiError.message || "Failed to save changes",
+					status: apiError.status,
+					isConflict,
+					mutationKey,
+				});
+
+				setMutationStatuses((prev) => ({
+					...prev,
+					[mutationKey]: {
+						state: "error",
+						error: apiError.message || "Failed to save changes",
+						isConflict,
+					},
+				}));
+
+				// Notify parent of conflict so they can offer reload
+				if (isConflict && onConflict) {
+					onConflict();
+				}
+			}
+		},
+		[mutationByKey, mutationStatuses, onSpecUpdate, onSaveComplete, onConflict, workspaceId],
+	);
+
+	const discardMutationsForKey = useCallback((mutationKey: string) => {
+		setMutationStatuses((prev) => ({
+			...prev,
+			[mutationKey]: { state: "discarded" },
+		}));
+	}, []);
+
+	// Auto-apply pending mutations if enabled
 	useEffect(() => {
+		if (!autoApplyMutations) return;
+
+		for (const msg of messages) {
+			if (msg.mutationKey && msg.mutations && msg.mutationStatus?.state === "pending") {
+				// Fire and forget; applyMutationsForKey handles dedupe via status checks.
+				void applyMutationsForKey(msg.mutationKey);
+			}
+		}
+	}, [autoApplyMutations, messages, applyMutationsForKey]);
+
+	const canUndo = undoStack.length > 0;
+
+	const undoLastApplied = useCallback(async () => {
 		const currentSpec = specRef.current;
 		if (!currentSpec) return;
 
-		for (const msg of messages) {
-			if (msg.role === "assistant" && msg.mutations && msg.runId) {
-				const mutationKey = `${msg.runId}-${msg.id}`;
-				if (!appliedMutationsRef.current.has(mutationKey)) {
-					// Mark as applied immediately to prevent re-processing
-					appliedMutationsRef.current.add(mutationKey);
-					const mutations = msg.mutations;
+		const last = undoStack[undoStack.length - 1];
+		if (!last) return;
 
-					// Apply mutations to current spec and update UI immediately
-					debugLog("[ArchitectChat]", "Applying mutations:", mutations);
-					const updatedSpec = applyMutations(currentSpec, mutations);
-					onSpecUpdate(updatedSpec);
+		// Pop optimistically
+		setUndoStack((prev) => prev.slice(0, -1));
 
-					// Trigger autosave with a microtask to get the latest state
-					// This fixes the race condition where user edits may have changed the rev
-					queueMicrotask(() => {
-						// Get the latest spec state right before saving
-						const latestSpec = specRef.current;
-						if (!latestSpec) return;
+		const reverted: SpecDocument = {
+			...last.before,
+			// Keep latest revision/session metadata for concurrency; server will issue new rev.
+			rev: currentSpec.rev,
+			metadata: {
+				...last.before.metadata,
+				sessionId: currentSpec.metadata.sessionId,
+				updatedAt: Date.now(),
+			},
+		};
 
-						// Re-apply mutations to the latest spec to include any concurrent user edits
-						const specToSave = applyMutations(latestSpec, mutations);
-						const revToUse = latestSpec.rev;
+		onSpecUpdate(reverted);
 
-						updateWorkspaceSpec(workspaceId, specToSave.slug, specToSave, revToUse)
-							.then((response) => {
-								setMutationError(null);
-								onSaveComplete(response.spec);
-							})
-							.catch((err) => {
-								console.error("[ArchitectChat] Failed to save after mutation:", err);
-								const apiError = err as { message?: string; status?: number };
-								const isConflict = apiError.status === 409;
-								setMutationError({
-									message: apiError.message || "Failed to save changes",
-									status: apiError.status,
-									isConflict,
-								});
-								// Notify parent of conflict so they can offer reload
-								if (isConflict && onConflict) {
-									onConflict();
-								}
-							});
-					});
-				}
+		try {
+			const response = await updateWorkspaceSpec(
+				workspaceId,
+				reverted.slug,
+				reverted,
+				currentSpec.rev,
+			);
+
+			setMutationError(null);
+			setMutationStatuses((prev) => ({
+				...prev,
+				[last.mutationKey]: { state: "pending" },
+			}));
+			onSaveComplete(response.spec);
+		} catch (err) {
+			console.error("[ArchitectChat] Failed to save undo:", err);
+			const apiError = err as { message?: string; status?: number };
+			const isConflict = apiError.status === 409;
+
+			setMutationError({
+				message: apiError.message || "Failed to undo changes",
+				status: apiError.status,
+				isConflict,
+				mutationKey: last.mutationKey,
+			});
+
+			setMutationStatuses((prev) => ({
+				...prev,
+				[last.mutationKey]: {
+					state: "error",
+					error: apiError.message || "Failed to undo changes",
+					isConflict,
+				},
+			}));
+
+			if (isConflict && onConflict) {
+				onConflict();
 			}
 		}
-	}, [messages, workspaceId, onSpecUpdate, onSaveComplete, onConflict]);
+	}, [undoStack, onSpecUpdate, onSaveComplete, onConflict, workspaceId]);
 
 	// Send a message to the architect
 	const sendMessage = useCallback(
@@ -260,13 +474,17 @@ export function useArchitectChat({
 			setSendError(null);
 
 			try {
+				const outline = buildSpecOutline(currentSpec);
+
 				// Create system context for the architect
 				const systemContext = `You are an architect helping to create a technical design specification.
 
 Current spec state:
 - Title: ${currentSpec.title}
-- Sections: ${currentSpec.sections.map((s) => s.label).join(", ")}
+- Overview (may be empty): ${currentSpec.overview ? "present" : "empty"}
 - Total items: ${currentSpec.sections.reduce((acc, s) => acc + s.items.length, 0)}
+- Outline:
+${outline}
 
 To modify the spec, include a JSON block at the end of your response with mutations:
 \`\`\`json
@@ -282,8 +500,11 @@ To modify the spec, include a JSON block at the end of your response with mutati
 \`\`\`
 
 Available section kinds: goals, non-goals, features, constraints, open-questions, data-models, integrations, dependencies, risks, testing
+Item statuses: draft, approved, deferred
 
-Item statuses: draft, approved, deferred`;
+Important:
+- Use existing item IDs when updating/deleting.
+- If proposing multiple mutations, keep them minimal and well-scoped.`;
 
 				const fullPrompt = `${systemContext}\n\nUser request: ${prompt}`;
 
@@ -317,7 +538,6 @@ Item statuses: draft, approved, deferred`;
 					};
 					onSpecUpdate(updatedSpec);
 
-					// Save the updated spec with the new sessionId
 					try {
 						const saveResponse = await updateWorkspaceSpec(
 							workspaceId,
@@ -355,6 +575,10 @@ Item statuses: draft, approved, deferred`;
 		mutationError,
 		sendMessage,
 		isSending,
+		applyMutationsForKey,
+		discardMutationsForKey,
+		canUndo,
+		undoLastApplied,
 		clearMutationError,
 	};
 }

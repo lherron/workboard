@@ -4,10 +4,12 @@ import {
 	deleteWorkspaceSpec,
 	fetchWorkspaceSpec,
 	fetchWorkspaceSpecs,
+	updateWorkspaceSpec,
 } from "@/api/client";
 import type { SpecDocument, SpecManifest } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { type SpecTemplateId, applyTemplateToSpec } from "../lib/templates";
 
 export type SpecListState = {
 	specs: SpecManifest[];
@@ -37,7 +39,7 @@ type UseSpecDocumentReturn = {
 	loadSpecList: (isRefresh?: boolean) => () => void;
 	loadSpec: (slug: string) => () => void;
 	handleSelectSpec: (slug: string) => void;
-	handleCreateSpec: (title: string) => Promise<void>;
+	handleCreateSpec: (title: string, templateId?: SpecTemplateId) => Promise<void>;
 	handleDeleteSpec: (slug: string) => Promise<void>;
 	handleSpecUpdate: (updatedSpec: SpecDocument) => void;
 	handleSaveComplete: (savedSpec: SpecDocument) => void;
@@ -183,16 +185,38 @@ export function useSpecDocument({
 	);
 
 	// Handle create new spec
+
 	const handleCreateSpec = useCallback(
-		async (title: string) => {
+		async (title: string, templateId: SpecTemplateId = "feature") => {
+			if (!workspaceId) return;
 			setIsCreating(true);
+			setSpecListState((prev) => ({ ...prev, error: null }));
 			try {
 				const response = await createWorkspaceSpec(workspaceId, { title });
+				let created = response.spec;
+
+				// Apply template after creation (server creates a minimal default spec)
+				if (templateId && templateId !== "blank") {
+					try {
+						const templated = applyTemplateToSpec(created, templateId);
+						const saveResponse = await updateWorkspaceSpec(
+							workspaceId,
+							templated.slug,
+							templated,
+							created.rev,
+						);
+						created = saveResponse.spec;
+					} catch (templateErr) {
+						// Template application failure should not block spec creation
+						console.error("[SpecWriter] Failed to apply template:", templateErr);
+					}
+				}
+
+				// Refresh spec list + navigate
 				loadSpecList(true);
-				navigate(`/workspace/${workspaceId}/spec-writer/${response.spec.slug}`);
+				navigate(`/workspace/${workspaceId}/spec-writer/${created.slug}`);
 			} catch (err) {
-				console.error("Failed to create spec:", err);
-				throw err;
+				setSpecListState((prev) => ({ ...prev, error: err as ApiClientError }));
 			} finally {
 				setIsCreating(false);
 			}
@@ -200,7 +224,6 @@ export function useSpecDocument({
 		[workspaceId, loadSpecList, navigate],
 	);
 
-	// Handle delete spec
 	const handleDeleteSpec = useCallback(
 		async (slug: string) => {
 			try {

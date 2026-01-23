@@ -4,7 +4,7 @@ test.describe("Route Navigation", () => {
 	test("/ redirects to /projects", async ({ page }) => {
 		await page.goto("/");
 
-		// Should redirect to /projects and show projects page
+		// Should redirect to /projects and show Projects header
 		await expect(page).toHaveURL("/projects");
 		await expect(page.locator("text=Projects")).toBeVisible({ timeout: 10000 });
 	});
@@ -17,12 +17,12 @@ test.describe("Route Navigation", () => {
 	});
 
 	test("/workspace/:id loads workspace dashboard", async ({ page }) => {
-		// First go to home to find a valid workspace
+		// First go to projects page to find a valid workspace
 		await page.goto("/projects");
 		await page.waitForLoadState("networkidle");
 
 		// Look for any project link and click it
-		const projectLink = page.locator('a[href^="/projects/"]').first();
+		const projectLink = page.locator('a[href*="/projects/"]').first();
 		if ((await projectLink.count()) > 0) {
 			await projectLink.click();
 			// URL should now be /projects/...

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 /**
  * Live Spec Writer tests - require control-plane and workboard running.
  *
- * Run with: PLAYWRIGHT_BASE_URL=http://localhost:18460 npx playwright test tests/spec-writer-live.spec.ts
+ * Run with: E2E_LIVE=1 PLAYWRIGHT_BASE_URL=http://localhost:18460 npx playwright test tests/spec-writer-live.spec.ts
  *
  * Prerequisites:
  * - stackctl status dev shows workboard running
@@ -18,9 +18,12 @@ import { expect, test } from "@playwright/test";
 const projectId = process.env.E2E_PROJECT_ID || "workboard";
 const specSlug = process.env.E2E_SPEC_SLUG || "test-authentication-system";
 
-// Skip these tests unless running against a live backend
+// Skip these tests unless E2E_LIVE is set (they require a running backend)
+const skipLive = !process.env.E2E_LIVE;
+
 test.describe("Spec Writer Live", () => {
-	test.skip(!process.env.PLAYWRIGHT_BASE_URL, "Requires live backend (set PLAYWRIGHT_BASE_URL)");
+	test.skip(skipLive, "Skipped: requires E2E_LIVE=1 and running backend");
+
 	test("captures spec writer interface with live backend", async ({ page }) => {
 		// Set large viewport to ensure all panes are visible
 		await page.setViewportSize({ width: 1600, height: 1000 });

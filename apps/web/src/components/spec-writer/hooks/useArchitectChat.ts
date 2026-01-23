@@ -1,5 +1,6 @@
 import { startDetachedRun, updateWorkspaceSpec } from "@/api/client";
 import { type SessionStreamEntry, useCpSessionStream } from "@/hooks/useCpSessionStream";
+import type { RunLike } from "@/lib/chat";
 import { debugLog } from "@/lib/utils";
 import { buildStreamingAssistantText, buildTranscript } from "@/session-events";
 import {
@@ -58,6 +59,10 @@ export type MutationSaveError = {
 
 export type UseArchitectChatResult = {
 	messages: ChatMessage[];
+	/** Session stream entries (sorted by seq) */
+	entries: SessionStreamEntry[];
+	/** Runs derived from entries for grouping */
+	runs: RunLike[];
 	isConnected: boolean;
 	isConnecting: boolean;
 	isStreaming: boolean;
@@ -77,6 +82,13 @@ export type UseArchitectChatResult = {
 	undoLastApplied: () => Promise<void>;
 
 	clearMutationError: () => void;
+
+	/** Map of mutationKey -> mutations for the UI */
+	getMutationsForRun: (runId: string) => {
+		mutations: SpecMutation[];
+		mutationKey: string;
+		status: MutationStatus;
+	} | null;
 };
 
 /**
@@ -274,18 +286,56 @@ export function useArchitectChat({
 		});
 	}, [baseMessages]);
 
+	// Sort entries by sequence for consistent display
+	const sortedEntries = useMemo(() => [...entries].sort((a, b) => a.seq - b.seq), [entries]);
+
+	// Derive runs from entries (extract from run_started events)
+	const runs = useMemo<RunLike[]>(() => {
+		const runMap = new Map<string, RunLike>();
+
+		for (const entry of sortedEntries) {
+			const runId = entry.runId;
+			if (!runId) continue;
+
+			const eventType = entry.event.type ?? (entry.event as Record<string, unknown>).kind;
+
+			if (eventType === "run_started") {
+				runMap.set(runId, {
+					runId,
+					status: "running",
+					createdAt: entry.timestamp,
+				});
+			} else if (
+				eventType === "run_completed" ||
+				eventType === "run_failed" ||
+				eventType === "run_cancelled"
+			) {
+				const existing = runMap.get(runId);
+				if (existing) {
+					runMap.set(runId, {
+						...existing,
+						status: eventType === "run_completed" ? "completed" : "failed",
+						completedAt: entry.timestamp,
+					});
+				}
+			}
+		}
+
+		return Array.from(runMap.values()).sort((a, b) => a.createdAt - b.createdAt);
+	}, [sortedEntries]);
+
 	// Check if currently streaming (has active run)
 	const isStreaming = useMemo(() => {
-		const lastEntry = entries[entries.length - 1];
+		const lastEntry = sortedEntries[sortedEntries.length - 1];
 		if (!lastEntry) return false;
 		// Streaming if we've seen run_started but not run_completed/failed/cancelled
-		const runEvents = entries.filter((e) => e.runId === lastEntry.runId);
+		const runEvents = sortedEntries.filter((e) => e.runId === lastEntry.runId);
 		const hasStarted = runEvents.some((e) => e.event.type === "run_started");
 		const hasEnded = runEvents.some((e) =>
 			["run_completed", "run_failed", "run_cancelled"].includes(e.event.type),
 		);
 		return hasStarted && !hasEnded;
-	}, [entries]);
+	}, [sortedEntries]);
 
 	// Track streaming text for live display
 	useEffect(() => {
@@ -295,10 +345,10 @@ export function useArchitectChat({
 		}
 
 		// Build current stream text from latest run using the shared pipeline.
-		const lastEntry = entries[entries.length - 1];
+		const lastEntry = sortedEntries[sortedEntries.length - 1];
 		if (!lastEntry?.runId) return;
-		setCurrentStreamText(buildStreamingAssistantText(entries, lastEntry.runId));
-	}, [entries, isStreaming]);
+		setCurrentStreamText(buildStreamingAssistantText(sortedEntries, lastEntry.runId));
+	}, [sortedEntries, isStreaming]);
 
 	const mutationByKey = useMemo(() => {
 		const map = new Map<string, SpecMutation[]>();
@@ -565,8 +615,27 @@ Important:
 		setMutationError(null);
 	}, []);
 
+	// Get mutations for a specific run (for UI to display mutation actions below RunCard)
+	const getMutationsForRun = useCallback(
+		(runId: string) => {
+			const msg = messages.find(
+				(m) => m.runId === runId && m.role === "assistant" && m.mutations && m.mutations.length > 0,
+			);
+			if (!msg || !msg.mutationKey || !msg.mutations) return null;
+
+			return {
+				mutations: msg.mutations,
+				mutationKey: msg.mutationKey,
+				status: msg.mutationStatus || { state: "pending" as const },
+			};
+		},
+		[messages],
+	);
+
 	return {
 		messages,
+		entries: sortedEntries,
+		runs,
 		isConnected,
 		isConnecting,
 		isStreaming,
@@ -580,5 +649,6 @@ Important:
 		canUndo,
 		undoLastApplied,
 		clearMutationError,
+		getMutationsForRun,
 	};
 }

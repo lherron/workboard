@@ -1,20 +1,37 @@
-import { formatTimestampShort } from "@/lib/datetime";
+/**
+ * SpecChatPane - Architect chat interface for spec editing.
+ *
+ * Uses the same component patterns as ConciergePanel:
+ * - ChatInput for message input
+ * - RunCard for event display
+ * - useAutoScroll for auto-scrolling
+ * - groupEventsByRun for event organization
+ *
+ * Adds spec-specific mutation handling (apply/discard/undo).
+ */
+
+import { ChatInput } from "@/components/chat/ChatInput";
+import { RunCard } from "@/components/chat/RunCard";
+import { useAutoScroll } from "@/hooks/useAutoScroll";
+import { detectLiveRun, groupEventsByRun } from "@/lib/chat";
 import { cn } from "@/lib/utils";
 import type { SpecDocument } from "@workboard/shared";
 import {
 	AlertTriangle,
 	CheckCircle,
 	Loader2,
+	Radio,
 	RefreshCw,
-	Send,
 	Undo2,
 	Wifi,
 	WifiOff,
 	XCircle,
 	Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { type ChatMessage, useArchitectChat } from "./hooks/useArchitectChat";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { type MutationStatus, useArchitectChat } from "./hooks/useArchitectChat";
+
+const THEME_COLOR = "#22d3ee"; // cyan for architect
 
 type Props = {
 	workspaceId: string;
@@ -44,116 +61,67 @@ function persistAutoApplyPreference(value: boolean) {
 }
 
 /**
- * Chat message component
+ * Mutation actions component - shown below RunCard when mutations are available
  */
-function ChatMessageBubble({
-	message,
-	isStreaming,
-	streamText,
+function MutationActions({
+	mutationCount,
+	status,
 	onApply,
 	onDiscard,
 }: {
-	message: ChatMessage | null;
-	isStreaming?: boolean;
-	streamText?: string;
-	onApply?: (mutationKey: string) => void;
-	onDiscard?: (mutationKey: string) => void;
+	mutationCount: number;
+	status: MutationStatus;
+	onApply: () => void;
+	onDiscard: () => void;
 }) {
-	// For streaming state, show partial content
-	if (isStreaming && !message) {
-		return (
-			<div className="flex flex-col gap-1 max-w-[85%]">
-				<div className="px-3 py-2 rounded bg-secondary/50 border border-border/30 text-sm font-mono whitespace-pre-wrap">
-					{streamText || <span className="text-muted-foreground animate-pulse">...</span>}
-				</div>
-			</div>
-		);
-	}
-
-	if (!message) return null;
-
-	const isUser = message.role === "user";
-	const hasMutations = message.mutations && message.mutations.length > 0 && message.mutationKey;
-	const mutationStatus = message.mutationStatus?.state;
-
 	return (
-		<div
-			className={cn(
-				"flex flex-col gap-1 max-w-[85%]",
-				isUser ? "ml-auto items-end" : "items-start",
-			)}
-		>
-			<div
-				className={cn(
-					"px-3 py-2 rounded text-sm font-mono whitespace-pre-wrap",
-					isUser
-						? "bg-primary/20 border border-primary/30 text-foreground"
-						: "bg-secondary/50 border border-border/30 text-foreground",
-				)}
-			>
-				{message.content}
-			</div>
-
-			{/* Metadata row */}
-			<div className="flex items-center gap-2 px-1">
-				<span className="text-[10px] font-mono text-muted-foreground/50">
-					{formatTimestampShort(message.timestamp)}
-				</span>
-
-				{/* Mutation indicator + actions */}
-				{hasMutations && (
-					<span className="flex items-center gap-2 text-[10px] font-mono">
-						{mutationStatus === "saved" ? (
-							<span className="flex items-center gap-1 text-green-500">
-								<CheckCircle size={10} />
-								<span>{message.mutations!.length} applied</span>
-							</span>
-						) : mutationStatus === "applying" ? (
-							<span className="flex items-center gap-1 text-warning">
-								<Loader2 size={10} className="animate-spin" />
-								<span>applying…</span>
-							</span>
-						) : mutationStatus === "discarded" ? (
-							<span className="flex items-center gap-1 text-muted-foreground/60">
-								<XCircle size={10} />
-								<span>discarded</span>
-							</span>
-						) : mutationStatus === "error" ? (
-							<span
-								className="flex items-center gap-1 text-destructive"
-								title={message.mutationStatus?.error}
-							>
-								<AlertTriangle size={10} />
-								<span>error</span>
-							</span>
-						) : (
-							<span className="flex items-center gap-1 text-warning">
-								<Zap size={10} />
-								<span>{message.mutations!.length} proposed</span>
-							</span>
-						)}
-
-						{mutationStatus === "pending" && message.mutationKey && (
-							<>
-								<button
-									type="button"
-									onClick={() => onApply?.(message.mutationKey!)}
-									className="px-1.5 py-0.5 bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors"
-								>
-									apply
-								</button>
-								<button
-									type="button"
-									onClick={() => onDiscard?.(message.mutationKey!)}
-									className="px-1.5 py-0.5 bg-secondary/40 border border-border/30 text-muted-foreground hover:bg-secondary/60 transition-colors"
-								>
-									discard
-								</button>
-							</>
-						)}
+		<div className="flex items-center gap-2 mt-2 ml-2 text-[10px] font-mono">
+			{status.state === "saved" ? (
+				<span className="flex items-center gap-1 text-emerald-400">
+					<CheckCircle size={10} />
+					<span>
+						{mutationCount} mutation{mutationCount !== 1 ? "s" : ""} applied
 					</span>
-				)}
-			</div>
+				</span>
+			) : status.state === "applying" ? (
+				<span className="flex items-center gap-1 text-cyan-400">
+					<Loader2 size={10} className="animate-spin" />
+					<span>applying…</span>
+				</span>
+			) : status.state === "discarded" ? (
+				<span className="flex items-center gap-1 text-slate-500">
+					<XCircle size={10} />
+					<span>discarded</span>
+				</span>
+			) : status.state === "error" ? (
+				<span className="flex items-center gap-1 text-red-400" title={status.error}>
+					<AlertTriangle size={10} />
+					<span>error</span>
+				</span>
+			) : (
+				<>
+					<span className="flex items-center gap-1 text-amber-400">
+						<Zap size={10} />
+						<span>
+							{mutationCount} mutation{mutationCount !== 1 ? "s" : ""} proposed
+						</span>
+					</span>
+					<button
+						type="button"
+						onClick={onApply}
+						className="px-1.5 py-0.5 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 transition-colors"
+					>
+						apply
+					</button>
+					<button
+						type="button"
+						onClick={onDiscard}
+						className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:bg-slate-700/60 transition-colors"
+					>
+						discard
+					</button>
+				</>
+			)}
 		</div>
 	);
 }
@@ -169,17 +137,13 @@ export function SpecChatPane({
 	onSaveComplete,
 	onConflict,
 }: Props) {
-	const [inputValue, setInputValue] = useState("");
 	const [autoApply, setAutoApply] = useState(loadAutoApplyPreference);
-	const messagesEndRef = useRef<HTMLDivElement>(null);
-	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	const {
-		messages,
+		entries,
+		runs,
 		isConnected,
 		isConnecting,
-		isStreaming,
-		currentStreamText,
 		error,
 		mutationError,
 		sendMessage,
@@ -189,6 +153,7 @@ export function SpecChatPane({
 		canUndo,
 		undoLastApplied,
 		clearMutationError,
+		getMutationsForRun,
 	} = useArchitectChat({
 		workspaceId,
 		spec,
@@ -203,45 +168,33 @@ export function SpecChatPane({
 		persistAutoApplyPreference(autoApply);
 	}, [autoApply]);
 
-	// Auto-scroll to bottom on new messages
-	// biome-ignore lint/correctness/useExhaustiveDependencies: messages and currentStreamText trigger scroll
-	useEffect(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, currentStreamText]);
+	// Group events by run (like ConciergePanel)
+	const runGroups = useMemo(() => groupEventsByRun(entries, runs), [entries, runs]);
 
-	// Handle send
-	const handleSend = useCallback(async () => {
-		const trimmed = inputValue.trim();
-		if (!trimmed || isSending || isStreaming) return;
+	// Detect if any run is live
+	const hasLiveRun = useMemo(() => detectLiveRun(runs, entries), [runs, entries]);
 
-		setInputValue("");
-		await sendMessage(trimmed);
-	}, [inputValue, isSending, isStreaming, sendMessage]);
+	// Auto-scroll on new entries
+	const { scrollRef, scrollToBottom } = useAutoScroll({
+		dependency: entries.length,
+		resetKey: spec?.metadata.sessionId,
+	});
 
-	// Handle keyboard shortcuts
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-				e.preventDefault();
-				handleSend();
-			}
+	// Handle prompt submission
+	const handleSubmit = useCallback(
+		async (prompt: string) => {
+			if (!prompt.trim() || isSending || hasLiveRun) return;
+			scrollToBottom();
+			await sendMessage(prompt);
 		},
-		[handleSend],
+		[isSending, hasLiveRun, scrollToBottom, sendMessage],
 	);
-
-	// Handle quick action buttons
-	const handleQuickAction = useCallback((prompt: string) => {
-		setInputValue(prompt);
-		inputRef.current?.focus();
-	}, []);
 
 	// No spec selected
 	if (!spec) {
 		return (
 			<div className="flex-1 flex items-center justify-center">
-				<p className="text-xs font-mono text-muted-foreground/60">
-					Select a spec to start chatting
-				</p>
+				<p className="text-[12px] text-slate-600">Select a spec to start chatting</p>
 			</div>
 		);
 	}
@@ -250,51 +203,43 @@ export function SpecChatPane({
 	const hasSession = !!sessionId;
 
 	return (
-		<div className="flex-1 flex flex-col min-h-0">
+		<div className="flex-1 flex flex-col min-h-0 bg-slate-950">
 			{/* Header */}
-			<div className="flex items-center justify-between px-4 py-3 border-b border-border/30 flex-shrink-0">
-				<div className="flex items-center gap-2">
-					<span className="text-sm font-mono text-muted-foreground">architect</span>
+			<div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800/50 bg-slate-900/50">
+				<div className="flex items-center gap-3">
+					<h2 className="text-[13px] font-bold uppercase tracking-wide text-cyan-400">Architect</h2>
 
 					{/* Connection status */}
 					{hasSession && (
-						<span
-							className={cn(
-								"flex items-center gap-1 text-[10px] font-mono",
-								isConnected
-									? "text-green-500"
-									: isConnecting
-										? "text-warning"
-										: "text-muted-foreground/50",
-							)}
-							title={isConnected ? "Connected" : isConnecting ? "Connecting..." : "Disconnected"}
-						>
-							{isConnected ? (
-								<Wifi size={10} />
-							) : isConnecting ? (
-								<Loader2 size={10} className="animate-spin" />
-							) : (
-								<WifiOff size={10} />
-							)}
-						</span>
+						<div className="flex items-center gap-1.5">
+							{isConnecting && <Loader2 className="w-3 h-3 text-cyan-400/60 animate-spin" />}
+							{isConnected && <Wifi className="w-3 h-3 text-emerald-400" />}
+							{!isConnected && !isConnecting && <WifiOff className="w-3 h-3 text-slate-500" />}
+						</div>
 					)}
 				</div>
 
 				<div className="flex items-center gap-2">
-					{/* Undo */}
+					{/* Session ID badge */}
+					{hasSession && (
+						<span className="text-[9px] font-mono text-slate-600 truncate max-w-[80px]">
+							{sessionId.slice(0, 8)}...
+						</span>
+					)}
+
+					{/* Undo button */}
 					<button
 						type="button"
 						onClick={() => void undoLastApplied()}
 						disabled={!canUndo}
 						className={cn(
-							"flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono",
-							"bg-secondary/50 border border-border/30 hover:bg-secondary/70 transition-colors",
+							"p-1.5 rounded transition-colors",
+							"text-slate-500 hover:text-cyan-400 hover:bg-slate-800",
 							"disabled:opacity-40 disabled:cursor-not-allowed",
 						)}
-						title="Undo last applied mutation batch"
+						title="Undo last applied mutation"
 					>
-						<Undo2 size={10} />
-						<span>undo</span>
+						<Undo2 className="w-4 h-4" />
 					</button>
 
 					{/* Auto-apply toggle */}
@@ -302,175 +247,173 @@ export function SpecChatPane({
 						type="button"
 						onClick={() => setAutoApply((v) => !v)}
 						className={cn(
-							"flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono",
+							"p-1.5 rounded transition-colors",
 							autoApply
-								? "bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25"
-								: "bg-secondary/40 border border-border/30 text-muted-foreground hover:bg-secondary/60",
+								? "text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20"
+								: "text-slate-500 hover:text-slate-300 hover:bg-slate-800",
 						)}
-						title={autoApply ? "Auto-apply mutations: ON" : "Auto-apply mutations: OFF"}
+						title={autoApply ? "Auto-apply: ON" : "Auto-apply: OFF"}
 					>
-						<Zap size={10} />
-						<span>auto</span>
+						<Zap className="w-4 h-4" />
 					</button>
+				</div>
+			</div>
 
-					{/* Session ID badge */}
-					{hasSession && (
-						<span className="text-[10px] font-mono text-muted-foreground/40 truncate max-w-[100px]">
-							{sessionId.slice(0, 8)}...
+			{/* Stats row */}
+			{hasSession && (
+				<div className="shrink-0 px-4 py-1.5 flex items-center gap-4 text-[9px] text-slate-500 border-b border-slate-800/30">
+					<span>
+						{runs.length} run{runs.length !== 1 ? "s" : ""}
+					</span>
+					<span>
+						{entries.length} event{entries.length !== 1 ? "s" : ""}
+					</span>
+					{hasLiveRun && (
+						<span className="inline-flex items-center gap-1 text-cyan-400/80">
+							<Radio className="w-2.5 h-2.5" />
+							<span className="animate-pulse">Live</span>
 						</span>
 					)}
 				</div>
-			</div>
-
-			{/* Quick actions (shown when no messages) */}
-			{messages.length === 0 && !isStreaming && (
-				<div className="px-4 py-3 border-b border-border/20 flex flex-wrap gap-2">
-					<button
-						type="button"
-						onClick={() => handleQuickAction("Add a feature: ")}
-						className="px-2 py-1 text-[10px] font-mono bg-secondary/50 border border-border/30 hover:bg-secondary hover:border-border/50 transition-colors"
-					>
-						+ feature
-					</button>
-					<button
-						type="button"
-						onClick={() => handleQuickAction("Add a question: ")}
-						className="px-2 py-1 text-[10px] font-mono bg-secondary/50 border border-border/30 hover:bg-secondary hover:border-border/50 transition-colors"
-					>
-						+ question
-					</button>
-					<button
-						type="button"
-						onClick={() => handleQuickAction("Review and improve the spec")}
-						className="px-2 py-1 text-[10px] font-mono bg-secondary/50 border border-border/30 hover:bg-secondary hover:border-border/50 transition-colors"
-					>
-						review
-					</button>
-				</div>
 			)}
 
-			{/* Messages list */}
-			<div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
-				{messages.length === 0 && !isStreaming ? (
-					<div className="flex items-center justify-center h-full">
-						<div className="text-center space-y-2">
-							<p className="text-xs font-mono text-muted-foreground/60">
-								{hasSession
-									? "Session connected. Start chatting with the architect."
-									: "Send a message to start a new architect session."}
-							</p>
+			{/* Body - scrollable event timeline */}
+			<div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+				{!hasSession ? (
+					// Empty state - no session
+					<div className="flex flex-col items-center justify-center h-full text-center">
+						<div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/10 to-slate-800/50 border border-cyan-500/20 flex items-center justify-center mb-4">
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="1.5"
+								className="text-cyan-400/60"
+							>
+								<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+							</svg>
+						</div>
+						<p className="text-[12px] text-slate-400 mb-1">No active session</p>
+						<p className="text-[10px] text-slate-600">Send a message to start collaborating</p>
+					</div>
+				) : entries.length === 0 ? (
+					// Session exists but no events yet
+					<div className="flex flex-col items-center justify-center h-full text-center">
+						<div className="border border-dashed border-slate-700/50 rounded-lg px-6 py-4">
+							<div className="text-[20px] text-slate-600 mb-2">...</div>
+							<div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+								{isConnecting ? "CONNECTING..." : "AWAITING EVENTS"}
+							</div>
+							<div className="text-[10px] text-slate-600 mt-1">
+								{isConnecting ? "Establishing connection" : "Session is idle"}
+							</div>
 						</div>
 					</div>
 				) : (
-					<>
-						{messages.map((msg) => (
-							<ChatMessageBubble
-								key={msg.id}
-								message={msg}
-								onApply={(key) => void applyMutationsForKey(key)}
-								onDiscard={discardMutationsForKey}
-							/>
-						))}
+					// Event timeline
+					<div className="space-y-1">
+						{runGroups.map((group, groupIndex) => {
+							const mutationInfo = getMutationsForRun(group.runId);
 
-						{/* Streaming message */}
-						{isStreaming && (
-							<ChatMessageBubble message={null} isStreaming streamText={currentStreamText} />
+							return (
+								<div key={`${group.runId}-${groupIndex}`}>
+									<RunCard
+										run={group.run}
+										runId={group.runId}
+										events={group.events}
+										themeColor={THEME_COLOR}
+										isFirst={groupIndex === 0}
+									/>
+
+									{/* Mutation actions (if this run has mutations) */}
+									{mutationInfo && (
+										<MutationActions
+											mutationCount={mutationInfo.mutations.length}
+											status={mutationInfo.status}
+											onApply={() => void applyMutationsForKey(mutationInfo.mutationKey)}
+											onDiscard={() => discardMutationsForKey(mutationInfo.mutationKey)}
+										/>
+									)}
+								</div>
+							);
+						})}
+
+						{/* Live indicator at bottom */}
+						{hasLiveRun && (
+							<div className="flex items-center gap-2 py-2 text-[10px] text-cyan-400/70">
+								<span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+								<span className="animate-pulse">Streaming...</span>
+							</div>
 						)}
-					</>
+					</div>
 				)}
 
-				<div ref={messagesEndRef} />
-			</div>
+				{/* Error display */}
+				{error && (
+					<div className="mt-4 p-3 rounded border border-red-500/30 bg-red-500/5">
+						<p className="text-[10px] text-red-400 font-mono">{error.message}</p>
+					</div>
+				)}
 
-			{/* Error display */}
-			{error && (
-				<div className="px-4 py-2 bg-destructive/10 border-t border-destructive/30">
-					<p className="text-xs font-mono text-destructive">{error.message}</p>
-				</div>
-			)}
-
-			{/* Mutation save error display */}
-			{mutationError && (
-				<div
-					className={cn(
-						"px-4 py-2 border-t flex items-center gap-2",
-						mutationError.isConflict
-							? "bg-warning/10 border-warning/30"
-							: "bg-destructive/10 border-destructive/30",
-					)}
-				>
-					<AlertTriangle
-						size={14}
-						className={mutationError.isConflict ? "text-warning" : "text-destructive"}
-					/>
-					<p
+				{/* Mutation save error display */}
+				{mutationError && (
+					<div
 						className={cn(
-							"text-xs font-mono flex-1",
-							mutationError.isConflict ? "text-warning" : "text-destructive",
+							"mt-4 p-3 rounded border flex items-start gap-2",
+							mutationError.isConflict
+								? "border-amber-500/30 bg-amber-500/5"
+								: "border-red-500/30 bg-red-500/5",
 						)}
 					>
-						{mutationError.isConflict
-							? "Changes were not saved - spec was modified externally."
-							: mutationError.message}
-					</p>
-					{mutationError.isConflict && onConflict && (
-						<button
-							type="button"
-							onClick={() => {
-								clearMutationError();
-								onConflict();
-							}}
-							className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-warning/20 border border-warning/30 text-warning hover:bg-warning/30 transition-colors"
-						>
-							<RefreshCw size={10} />
-							<span>Reload</span>
-						</button>
-					)}
-				</div>
-			)}
-
-			{/* Input area */}
-			<div className="border-t border-border/30 p-3 flex-shrink-0">
-				<div className="flex gap-2">
-					<textarea
-						ref={inputRef}
-						value={inputValue}
-						onChange={(e) => setInputValue(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder="Ask the architect..."
-						className={cn(
-							"flex-1 px-3 py-2 text-sm font-mono",
-							"bg-background border border-border/50 rounded",
-							"placeholder:text-muted-foreground/40",
-							"focus:outline-none focus:border-primary/50",
-							"resize-none min-h-[60px] max-h-[120px]",
-						)}
-						disabled={isSending || isStreaming}
-						rows={2}
-					/>
-					<button
-						type="button"
-						onClick={handleSend}
-						disabled={!inputValue.trim() || isSending || isStreaming}
-						className={cn(
-							"px-3 py-2 self-end",
-							"bg-primary/20 border border-primary/30 rounded",
-							"hover:bg-primary/30 transition-colors",
-							"disabled:opacity-50 disabled:cursor-not-allowed",
-						)}
-						title="Send (Cmd/Ctrl+Enter)"
-					>
-						{isSending || isStreaming ? (
-							<Loader2 size={16} className="animate-spin text-primary" />
-						) : (
-							<Send size={16} className="text-primary" />
-						)}
-					</button>
-				</div>
-				<p className="text-[10px] font-mono text-muted-foreground/40 mt-1.5">
-					Cmd/Ctrl+Enter to send
-				</p>
+						<AlertTriangle
+							size={14}
+							className={cn(
+								"shrink-0 mt-0.5",
+								mutationError.isConflict ? "text-amber-400" : "text-red-400",
+							)}
+						/>
+						<div className="flex-1 min-w-0">
+							<p
+								className={cn(
+									"text-[10px] font-mono",
+									mutationError.isConflict ? "text-amber-400" : "text-red-400",
+								)}
+							>
+								{mutationError.isConflict
+									? "Changes were not saved - spec was modified externally."
+									: mutationError.message}
+							</p>
+							{mutationError.isConflict && onConflict && (
+								<button
+									type="button"
+									onClick={() => {
+										clearMutationError();
+										onConflict();
+									}}
+									className="flex items-center gap-1 mt-2 px-2 py-0.5 text-[9px] font-mono bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 transition-colors"
+								>
+									<RefreshCw size={10} />
+									<span>Reload</span>
+								</button>
+							)}
+						</div>
+					</div>
+				)}
 			</div>
+
+			{/* Footer - input */}
+			<ChatInput
+				placeholder="Ask the architect..."
+				onSubmit={handleSubmit}
+				isSubmitting={isSending}
+				disabled={hasLiveRun}
+				disabledMessage={hasLiveRun ? "Run in progress..." : undefined}
+				submitKey="cmd-enter"
+				variant="minimal"
+				autoFocus={false}
+			/>
 		</div>
 	);
 }

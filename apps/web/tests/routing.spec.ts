@@ -6,7 +6,7 @@ test.describe("Route Navigation", () => {
 
 		// Should redirect to /projects and show Projects header
 		await expect(page).toHaveURL("/projects");
-		await expect(page.locator("text=Projects")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 10000 });
 	});
 
 	test("/plan loads plan mode", async ({ page }) => {

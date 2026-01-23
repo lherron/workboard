@@ -18,7 +18,9 @@ import { expect, test } from "@playwright/test";
 const projectId = process.env.E2E_PROJECT_ID || "workboard";
 const specSlug = process.env.E2E_SPEC_SLUG || "test-authentication-system";
 
+// Skip these tests unless running against a live backend
 test.describe("Spec Writer Live", () => {
+	test.skip(!process.env.PLAYWRIGHT_BASE_URL, "Requires live backend (set PLAYWRIGHT_BASE_URL)");
 	test("captures spec writer interface with live backend", async ({ page }) => {
 		// Set large viewport to ensure all panes are visible
 		await page.setViewportSize({ width: 1600, height: 1000 });

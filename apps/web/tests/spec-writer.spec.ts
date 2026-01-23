@@ -121,6 +121,7 @@ const specToManifest = (spec: ReturnType<typeof createMockSpec>) => ({
 	title: spec.title,
 	version: spec.version,
 	rev: spec.rev,
+	createdAt: spec.metadata.createdAt,
 	updatedAt: spec.metadata.updatedAt,
 	sessionId: spec.metadata.sessionId,
 });

@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Route Navigation", () => {
-	test("/ loads global dashboard", async ({ page }) => {
+	test("/ redirects to /projects", async ({ page }) => {
 		await page.goto("/");
 
-		// Should show the global dashboard with workspaces header
-		await expect(page.locator("text=WORKSPACES")).toBeVisible({ timeout: 10000 });
+		// Should redirect to /projects and show projects page
+		await expect(page).toHaveURL("/projects");
+		await expect(page.locator("text=Projects")).toBeVisible({ timeout: 10000 });
 	});
 
 	test("/plan loads plan mode", async ({ page }) => {
@@ -17,20 +18,20 @@ test.describe("Route Navigation", () => {
 
 	test("/workspace/:id loads workspace dashboard", async ({ page }) => {
 		// First go to home to find a valid workspace
-		await page.goto("/");
+		await page.goto("/projects");
 		await page.waitForLoadState("networkidle");
 
-		// Look for any workspace link and click it
-		const workspaceLink = page.locator('[class*="workspace"]').first();
-		if ((await workspaceLink.count()) > 0) {
-			await workspaceLink.click();
-			// URL should now be /workspace/...
-			await expect(page).toHaveURL(/\/workspace\//);
+		// Look for any project link and click it
+		const projectLink = page.locator('a[href^="/projects/"]').first();
+		if ((await projectLink.count()) > 0) {
+			await projectLink.click();
+			// URL should now be /projects/...
+			await expect(page).toHaveURL(/\/projects\//);
 		}
 	});
 
 	test("mode toggle switches between execute and plan", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/projects");
 		await page.waitForLoadState("networkidle");
 
 		// Find and click a visible plan mode toggle
@@ -47,7 +48,7 @@ test.describe("Route Navigation", () => {
 
 test.describe("Browser History", () => {
 	test("back button works after navigation", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/projects");
 		await page.waitForLoadState("networkidle");
 
 		// Navigate to plan
@@ -56,18 +57,18 @@ test.describe("Browser History", () => {
 
 		// Go back
 		await page.goBack();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL("/projects");
 	});
 
 	test("forward button works after back", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/projects");
 		await page.waitForLoadState("networkidle");
 
 		await page.goto("/plan");
 		await expect(page.locator("text=PLANNING BOARD")).toBeVisible({ timeout: 10000 });
 
 		await page.goBack();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL("/projects");
 
 		await page.goForward();
 		await expect(page).toHaveURL("/plan");

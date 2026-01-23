@@ -148,6 +148,7 @@ When committing changes:
 - **Component Naming:** PascalCase files for React components, camelCase for hooks/utilities
 - **Styling:** Use Tailwind utility classes in `className`; `cn()` from `lib/utils.ts` for conditional merging
 - **Formatting:** Biome enforced; run `bun run lint:fix` before commits
+- **Git Hooks:** Lefthook for pre-commit checks (lint, typecheck, gitleaks); run `lefthook install` after cloning
 
 ## Testing
 

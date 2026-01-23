@@ -12,7 +12,6 @@ type WorkItemWithRun = WorkItem & {
 type RunDetailModalProps = {
 	workItem: WorkItemWithRun;
 	onClose: () => void;
-	onNavigateToInboxHub: () => void;
 };
 
 // Run status styling
@@ -72,7 +71,7 @@ function DetailRow({
 	);
 }
 
-export function RunDetailModal({ workItem, onClose, onNavigateToInboxHub }: RunDetailModalProps) {
+export function RunDetailModal({ workItem, onClose }: RunDetailModalProps) {
 	const [task, setTask] = useState<TaskDetail | null>(null);
 	const [taskLoading, setTaskLoading] = useState(true);
 	const [taskError, setTaskError] = useState<string | null>(null);
@@ -307,35 +306,11 @@ export function RunDetailModal({ workItem, onClose, onNavigateToInboxHub }: RunD
 				</div>
 
 				{/* Footer */}
-				<div className="px-6 py-3 border-t border-border/30 bg-secondary/20 flex items-center justify-between">
+				<div className="px-6 py-3 border-t border-border/30 bg-secondary/20 flex items-center justify-end">
 					<div className="text-[9px] font-mono text-muted-foreground/40">
 						<kbd className="px-1.5 py-0.5 bg-secondary/60 border border-border/30 rounded">Esc</kbd>{" "}
 						to close
 					</div>
-
-					<button
-						onClick={onNavigateToInboxHub}
-						className={cn(
-							"flex items-center gap-2 px-4 py-2",
-							"text-[11px] font-medium uppercase tracking-wider",
-							"border border-primary/40 text-primary hover:bg-primary/10",
-							"transition-colors",
-						)}
-					>
-						<span>Open in Inbox Hub</span>
-						<svg
-							width="12"
-							height="12"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2"
-						>
-							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-							<polyline points="15 3 21 3 21 9" />
-							<line x1="10" y1="14" x2="21" y2="3" />
-						</svg>
-					</button>
 				</div>
 
 				{/* Scan line effect */}

@@ -85,7 +85,7 @@ const allStates = [
 export function PromptShapingRoute() {
 	const { workspaceId, taskId } = useParams<{ workspaceId: string; taskId: string }>();
 	const searchString = useSearch();
-	const { goToGlobalDashboard, goToInboxHub } = useAppNavigation();
+	const { goToGlobalDashboard, goToProjects } = useAppNavigation();
 
 	// Extract display names from query params (for backwards compatibility during transition)
 	const searchParams = new URLSearchParams(searchString);
@@ -167,7 +167,7 @@ export function PromptShapingRoute() {
 	}, [workspaceId, taskId]);
 
 	const handleBack = () => {
-		goToInboxHub();
+		goToProjects();
 	};
 
 	const handleTaskUpdate = useCallback(

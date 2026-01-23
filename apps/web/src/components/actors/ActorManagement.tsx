@@ -1,5 +1,6 @@
 import { type ApiClientError, fetchActors } from "@/api/client";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { useAppNavigation } from "@/hooks/useNavigation";
 import type { WrkqActor } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { CreateActorModal } from "./CreateActorModal";
@@ -118,6 +119,7 @@ function LoadingSkeleton() {
 }
 
 export function ActorManagement() {
+	const { goToProjects } = useAppNavigation();
 	const [actors, setActors] = useState<WrkqActor[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<ApiClientError | null>(null);
@@ -153,10 +155,7 @@ export function ActorManagement() {
 	const handleRefresh = () => setRequestId((n) => n + 1);
 
 	const handleBackToHub = () => {
-		const url = new URL(window.location.href);
-		url.searchParams.set("view", "inbox-hub");
-		window.history.pushState({}, "", url.toString());
-		window.dispatchEvent(new PopStateEvent("popstate"));
+		goToProjects();
 	};
 
 	return (
@@ -177,7 +176,7 @@ export function ActorManagement() {
 						onClick={handleBackToHub}
 						className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
 					>
-						← hub
+						← projects
 					</button>
 					<div className="w-px h-4 bg-border/50" />
 					<div className="flex items-center gap-3">

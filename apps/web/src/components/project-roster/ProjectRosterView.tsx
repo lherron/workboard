@@ -14,6 +14,7 @@ import { ProjectRosterMemberCard } from "./ProjectRosterMemberCard";
 type ProjectRosterViewProps = {
 	projectId: string;
 	initialRoleName?: string;
+	initialSessionId?: string;
 };
 
 // Role accent colors - cyberpunk palette with distinct character
@@ -42,7 +43,11 @@ export type MemberWithRuns = {
 	roleColor: string;
 };
 
-export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterViewProps) {
+export function ProjectRosterView({
+	projectId,
+	initialRoleName,
+	initialSessionId,
+}: ProjectRosterViewProps) {
 	const [, setLocation] = useLocation();
 
 	// Data state
@@ -53,6 +58,11 @@ export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterV
 	// Selected member for conversation panel
 	const [selectedRoleName, setSelectedRoleName] = useState<string | null>(
 		initialRoleName ?? "oracle",
+	);
+
+	// Selected session ID (for URL embedding)
+	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+		initialSessionId ?? null,
 	);
 
 	// Fetch roster and runs
@@ -210,12 +220,31 @@ export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterV
 		return () => controller.abort();
 	}, [fetchData]);
 
-	// Update URL when selection changes
+	// Update URL when role or session selection changes
 	useEffect(() => {
-		if (selectedRoleName && selectedRoleName !== initialRoleName) {
-			setLocation(`/projects/${projectId}/roster/${selectedRoleName}`, { replace: true });
+		if (selectedRoleName) {
+			const hasRoleChange = selectedRoleName !== initialRoleName;
+			const hasSessionChange = selectedSessionId !== initialSessionId;
+
+			if (hasRoleChange || hasSessionChange) {
+				const basePath = `/projects/${projectId}/roster/${selectedRoleName}`;
+				const path = selectedSessionId ? `${basePath}/${selectedSessionId}` : basePath;
+				setLocation(path, { replace: true });
+			}
 		}
-	}, [selectedRoleName, projectId, initialRoleName, setLocation]);
+	}, [
+		selectedRoleName,
+		selectedSessionId,
+		projectId,
+		initialRoleName,
+		initialSessionId,
+		setLocation,
+	]);
+
+	// Handle session change from conversation component
+	const handleSessionChange = (sessionId: string | null) => {
+		setSelectedSessionId(sessionId);
+	};
 
 	// Selected member data
 	const selectedMember = members.find((m) => m.member.roleName === selectedRoleName);
@@ -346,7 +375,11 @@ export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterV
 									key={memberWithRuns.member.memberId}
 									memberWithRuns={memberWithRuns}
 									isSelected={memberWithRuns.member.roleName === selectedRoleName}
-									onSelect={() => setSelectedRoleName(memberWithRuns.member.roleName)}
+									onSelect={() => {
+										setSelectedRoleName(memberWithRuns.member.roleName);
+										// Reset session when switching roles
+										setSelectedSessionId(null);
+									}}
 								/>
 							))
 						)}
@@ -360,6 +393,8 @@ export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterV
 							projectId={projectId}
 							memberWithRuns={selectedMember}
 							onRefresh={fetchData}
+							initialSessionId={selectedSessionId ?? undefined}
+							onSessionChange={handleSessionChange}
 						/>
 					) : (
 						<div className="flex-1 flex items-center justify-center">

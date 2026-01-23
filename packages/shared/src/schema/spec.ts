@@ -115,8 +115,9 @@ export const specManifestSchema = z.object({
 	title: z.string(),
 	version: z.string(),
 	rev: z.number().int().nonnegative(),
+	createdAt: z.number(),
 	updatedAt: z.number(),
-	sessionId: z.string().nullable(),
+	sessionId: z.string().nullable().optional(),
 });
 export type SpecManifest = z.infer<typeof specManifestSchema>;
 

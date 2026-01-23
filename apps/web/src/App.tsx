@@ -11,7 +11,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { TaskDetailPanel } from "@/components/TaskDetail";
 import { TaskList } from "@/components/TaskList";
 import { ActorManagement } from "@/components/actors";
-import { InboxHub } from "@/components/inbox-hub";
 import { ModeToggle, PlanModeView } from "@/components/plan";
 import { useQueryParam } from "@/lib/useQueryParam";
 import type {
@@ -400,11 +399,6 @@ function App() {
 	const selectedWorkspace =
 		workspaceTrees.find((ws) => ws.projectId === selectedWorkspaceId) ?? null;
 	const selectedWorkspaceContainers = selectedWorkspace?.containers ?? [];
-
-	// Inbox Hub prototype view
-	if (view === "inbox-hub") {
-		return <InboxHub />;
-	}
 
 	// Actor Management view
 	if (view === "actors") {

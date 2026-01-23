@@ -3,7 +3,7 @@ import type { TaskListItem } from "@workboard/shared";
  * useTaskWebhook - Shared hook for real-time task updates via SSE
  *
  * Provides EventSource subscription to /api/webhooks/stream for task updates.
- * Used by InboxHub, ContainerNavigator, and ContainerDetailView for live updates.
+ * Used by ContainerNavigator and ContainerDetailView for live updates.
  */
 import { useCallback, useEffect, useRef } from "react";
 

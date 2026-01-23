@@ -575,7 +575,7 @@ export function GlobalDashboard({
 	onSelectTask,
 	onTasksChanged,
 }: GlobalDashboardProps) {
-	const { goToInboxHub } = useAppNavigation();
+	const { goToProjects } = useAppNavigation();
 	const [tasks, setTasks] = useState<CrossProjectTaskListItem[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(true);
 	const [tasksError, setTasksError] = useState<ApiClientError | null>(null);
@@ -724,9 +724,9 @@ export function GlobalDashboard({
 						{/* Separator */}
 						<div className="h-6 w-px bg-border/40 mx-1" />
 
-						{/* Inbox Hub link */}
+						{/* Projects link */}
 						<button
-							onClick={goToInboxHub}
+							onClick={goToProjects}
 							className={cn(
 								"inline-flex items-center gap-2 px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition-all",
 								"bg-primary/10 border-primary/40 text-primary hover:bg-primary/20 hover:border-primary/60",
@@ -734,7 +734,7 @@ export function GlobalDashboard({
 							)}
 						>
 							<Inbox className="w-3.5 h-3.5" />
-							<span>Inbox Hub</span>
+							<span>Projects</span>
 						</button>
 					</div>
 				</div>

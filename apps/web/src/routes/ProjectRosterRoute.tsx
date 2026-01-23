@@ -2,8 +2,8 @@ import { ProjectRosterView } from "@/components/project-roster/ProjectRosterView
 import { useParams } from "wouter";
 
 export function ProjectRosterRoute() {
-	const params = useParams<{ projectId: string; roleName?: string }>();
-	const { projectId, roleName } = params;
+	const params = useParams<{ projectId: string; roleName?: string; sessionId?: string }>();
+	const { projectId, roleName, sessionId } = params;
 
 	if (!projectId) {
 		return (
@@ -13,5 +13,11 @@ export function ProjectRosterRoute() {
 		);
 	}
 
-	return <ProjectRosterView projectId={projectId} initialRoleName={roleName} />;
+	return (
+		<ProjectRosterView
+			projectId={projectId}
+			initialRoleName={roleName}
+			initialSessionId={sessionId}
+		/>
+	);
 }

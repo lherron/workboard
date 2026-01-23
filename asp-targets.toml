@@ -14,7 +14,7 @@ compose = ["space:ralph-plan-loop@dev", "space:praesidium-defaults@dev"]
 
 [targets.ralph-build]
 description = "Ralph build loop"
-compose = ["space:ralph-build-loop@dev"]
+compose = ["space:ralph-build-loop@dev", "space:praesidium-defaults@dev"]
 
 [targets.hannibal]
 description = "Coordinator persona (hannibal)"

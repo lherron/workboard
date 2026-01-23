@@ -5,7 +5,7 @@ import {
 	fetchWorkspaceTasks,
 	updateTask,
 } from "@/api/client";
-import { TaskDetailModal } from "@/components/inbox-hub/TaskDetailModal";
+import { TaskDetailModal } from "@/components/TaskDetailModal";
 import { useAppNavigation } from "@/hooks/useNavigation";
 import { type WebhookTaskPayload, isActionState, useTaskWebhook } from "@/hooks/useTaskWebhook";
 import { cn } from "@/lib/utils";

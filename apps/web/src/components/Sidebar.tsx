@@ -360,31 +360,6 @@ export function Sidebar({
 			{/* Quick Actions */}
 			<div className="px-3 py-2 border-t border-border/20 space-y-0.5">
 				<a
-					href="/inbox-hub"
-					className={cn(
-						"flex items-center gap-2 px-2 py-1.5 rounded-sm text-[11px] transition-colors",
-						"text-muted-foreground/70 hover:text-foreground hover:bg-muted/30",
-						"group",
-					)}
-				>
-					<svg
-						className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					>
-						<polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-						<path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-					</svg>
-					<span>Inbox Hub</span>
-					<span className="ml-auto text-[9px] text-muted-foreground/40 group-hover:text-muted-foreground/60">
-						⌘I
-					</span>
-				</a>
-				<a
 					href="/projects"
 					className={cn(
 						"flex items-center gap-2 px-2 py-1.5 rounded-sm text-[11px] transition-colors",

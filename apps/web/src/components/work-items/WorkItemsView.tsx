@@ -31,7 +31,7 @@ type WebhookPayload = {
 };
 
 export function WorkItemsView() {
-	const { goToInboxHubTask } = useAppNavigation();
+	const _navigation = useAppNavigation();
 	const [, setLocation] = useLocation();
 	const params = useParams<{ projectId: string }>();
 	const { projectId } = params;
@@ -183,15 +183,6 @@ export function WorkItemsView() {
 	const handleCloseModal = useCallback(() => {
 		setModalWorkItem(null);
 	}, []);
-
-	// Navigate to task in InboxHub
-	const handleNavigateToTask = useCallback(
-		(workItem: WorkItemWithRun) => {
-			// Use sourceRef.taskUuid to find the task
-			goToInboxHubTask(workItem.projectId, workItem.sourceRef.taskUuid);
-		},
-		[goToInboxHubTask],
-	);
 
 	// Keyboard navigation
 	useEffect(() => {
@@ -607,16 +598,7 @@ export function WorkItemsView() {
 			</div>
 
 			{/* Run Detail Modal */}
-			{modalWorkItem && (
-				<RunDetailModal
-					workItem={modalWorkItem}
-					onClose={handleCloseModal}
-					onNavigateToInboxHub={() => {
-						handleNavigateToTask(modalWorkItem);
-						handleCloseModal();
-					}}
-				/>
-			)}
+			{modalWorkItem && <RunDetailModal workItem={modalWorkItem} onClose={handleCloseModal} />}
 		</div>
 	);
 }

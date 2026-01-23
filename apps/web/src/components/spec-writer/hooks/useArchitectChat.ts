@@ -298,8 +298,8 @@ Item statuses: draft, approved, deferred`;
 					session: {
 						policy: sessionPolicy,
 						sessionId: currentSessionId || undefined,
-						backendKind: "agent-sdk-session",
-						model: "sonnet",
+						backendKind: "asp",
+						model: "opus",
 					},
 					maxTurns: 1,
 				});

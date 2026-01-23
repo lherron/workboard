@@ -8,13 +8,6 @@ test.describe("Route Navigation", () => {
 		await expect(page.locator("text=WORKSPACES")).toBeVisible({ timeout: 10000 });
 	});
 
-	test("/inbox-hub loads inbox hub", async ({ page }) => {
-		await page.goto("/inbox-hub");
-
-		// Should show inbox hub header
-		await expect(page.locator("text=Inbox Hub")).toBeVisible({ timeout: 10000 });
-	});
-
 	test("/plan loads plan mode", async ({ page }) => {
 		await page.goto("/plan");
 
@@ -50,19 +43,6 @@ test.describe("Route Navigation", () => {
 			await expect(page.locator("text=PLANNING BOARD")).toBeVisible({ timeout: 10000 });
 		}
 	});
-
-	test("inbox hub link in sidebar works", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
-		// Find and click inbox hub link (use first() since there are multiple)
-		const inboxLink = page.locator('a[href="/inbox-hub"]').first();
-		if ((await inboxLink.count()) > 0) {
-			await inboxLink.click();
-			await expect(page).toHaveURL("/inbox-hub");
-			await expect(page.locator("text=Inbox Hub")).toBeVisible({ timeout: 10000 });
-		}
-	});
 });
 
 test.describe("Browser History", () => {
@@ -70,9 +50,9 @@ test.describe("Browser History", () => {
 		await page.goto("/");
 		await page.waitForLoadState("networkidle");
 
-		// Navigate to inbox-hub
-		await page.goto("/inbox-hub");
-		await expect(page.locator("text=Inbox Hub")).toBeVisible({ timeout: 10000 });
+		// Navigate to plan
+		await page.goto("/plan");
+		await expect(page.locator("text=PLANNING BOARD")).toBeVisible({ timeout: 10000 });
 
 		// Go back
 		await page.goBack();
@@ -103,11 +83,5 @@ test.describe("Deep Links", () => {
 		await expect(page.locator("text=SYSTEM READY").or(page.locator("text=SYNCING"))).toBeVisible({
 			timeout: 10000,
 		});
-	});
-
-	test("direct link to /inbox-hub loads correctly", async ({ page }) => {
-		await page.goto("/inbox-hub");
-
-		await expect(page.locator("text=Inbox Hub")).toBeVisible({ timeout: 10000 });
 	});
 });

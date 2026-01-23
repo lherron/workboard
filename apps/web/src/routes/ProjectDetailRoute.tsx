@@ -740,8 +740,8 @@ function RunRow({ run }: { run: RunSummary }) {
 
 	const timeAgo = formatTimeAgo(run.createdAt);
 
-	return (
-		<div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-900/20 transition-colors">
+	const content = (
+		<>
 			<span className="text-[10px] font-mono text-indigo-400/60 w-20 truncate">
 				{run.runId.slice(0, 8)}
 			</span>
@@ -759,6 +759,25 @@ function RunRow({ run }: { run: RunSummary }) {
 			>
 				{run.status}
 			</span>
+		</>
+	);
+
+	// If sessionId is available, make it a clickable link to the timeline
+	if (run.sessionId) {
+		return (
+			<Link
+				href={`/sessions/${run.sessionId}/timeline`}
+				className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-900/20 transition-colors group cursor-pointer"
+			>
+				{content}
+			</Link>
+		);
+	}
+
+	// Fallback to non-clickable div if no sessionId
+	return (
+		<div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-900/20 transition-colors">
+			{content}
 		</div>
 	);
 }

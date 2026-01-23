@@ -23,12 +23,8 @@ export function useAppNavigation() {
 		/** Navigate to the global dashboard (home) */
 		goToGlobalDashboard: () => navigate("/"),
 
-		/** Navigate to inbox hub */
-		goToInboxHub: () => navigate("/inbox-hub"),
-
-		/** Navigate to inbox hub with task modal open */
-		goToInboxHubTask: (workspaceId: string, taskId: string) =>
-			navigate(`/inbox-hub/${workspaceId}/${taskId}`),
+		/** Navigate to projects list */
+		goToProjects: () => navigate("/projects"),
 
 		/** Navigate to plan mode */
 		goToPlan: () => navigate("/plan"),

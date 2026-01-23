@@ -25,20 +25,30 @@ type ProjectRosterConversationProps = {
 	projectId: string;
 	memberWithRuns: MemberWithRuns;
 	onRefresh: () => void;
+	initialSessionId?: string;
+	onSessionChange?: (sessionId: string | null) => void;
 };
 
 export function ProjectRosterConversation({
 	projectId,
 	memberWithRuns,
 	onRefresh,
+	initialSessionId,
+	onSessionChange,
 }: ProjectRosterConversationProps) {
 	const { member, sessions, roleColor } = memberWithRuns;
 	const activeSessionId = member.session.activeSessionId;
 
-	// Track selected session tab - default to active session
+	// Track selected session tab - use URL session if provided, otherwise active session
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-		activeSessionId ?? sessions[0]?.sessionId ?? null,
+		initialSessionId ?? activeSessionId ?? sessions[0]?.sessionId ?? null,
 	);
+
+	// Notify parent when session changes (for URL updates)
+	const handleSessionSelect = (sessionId: string | null) => {
+		setSelectedSessionId(sessionId);
+		onSessionChange?.(sessionId);
+	};
 
 	// Track previous member to detect member changes
 	const prevMemberIdRef = useRef(member.memberId);
@@ -151,7 +161,7 @@ export function ProjectRosterConversation({
 			// Switch to the new session
 			if (response.sessionId) {
 				pendingSessionIdRef.current = response.sessionId;
-				setSelectedSessionId(response.sessionId);
+				handleSessionSelect(response.sessionId);
 			}
 
 			onRefresh();
@@ -192,7 +202,7 @@ export function ProjectRosterConversation({
 				await clearProjectRoleSession(projectId, member.roleName);
 			}
 			// Switch to "new session" view
-			setSelectedSessionId(null);
+			handleSessionSelect(null);
 			onRefresh();
 		} catch (err) {
 			console.error("Failed to start new chat:", err);
@@ -323,7 +333,7 @@ export function ProjectRosterConversation({
 						return (
 							<button
 								key={session.sessionId}
-								onClick={() => setSelectedSessionId(session.sessionId)}
+								onClick={() => handleSessionSelect(session.sessionId)}
 								className={cn(
 									"flex items-center gap-1.5 px-3 py-2 text-[9px] font-mono border-b-2 transition-colors whitespace-nowrap",
 									isSelected
@@ -414,7 +424,7 @@ export function ProjectRosterConversation({
 					<div className="flex items-center justify-center gap-2 text-[10px] text-indigo-300/60">
 						<span>Viewing historical session</span>
 						<button
-							onClick={() => setSelectedSessionId(activeSessionId)}
+							onClick={() => handleSessionSelect(activeSessionId ?? null)}
 							className="text-cyan-400 hover:text-cyan-300 transition-colors"
 						>
 							Switch to active →

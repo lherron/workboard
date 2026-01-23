@@ -16,9 +16,9 @@ pre-commit:
         fi
     check-ts-location:
       run: |
-        bad_files=$(ls *.ts 2>/dev/null || true)
+        bad_files=$(ls *.ts *.mjs 2>/dev/null || true)
         if [ -n "$bad_files" ]; then
-          echo "Error: Unexpected .ts files in root directory:"
+          echo "Error: Unexpected .ts/.mjs files in root directory:"
           echo "$bad_files"
           echo "Ad-hoc scripts should be in scripts/."
           exit 1

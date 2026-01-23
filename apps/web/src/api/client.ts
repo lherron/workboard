@@ -107,7 +107,7 @@ export type StartDetachedRunRequest = {
 	metadata?: Record<string, unknown>;
 	session?: {
 		policy?: "new" | "resume";
-		backendKind?: "agent-sdk-session" | "agent-sdk" | "mock" | "playback" | "pi";
+		backendKind?: "agent-sdk-session" | "agent-sdk" | "mock" | "playback" | "pi" | "asp";
 		sessionId?: string;
 		model?: "haiku" | "sonnet" | "opus" | "opus-4-5";
 	};

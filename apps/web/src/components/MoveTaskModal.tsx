@@ -1,7 +1,7 @@
 import { type ApiClientError, moveTask } from "@/api/client";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { formatProjectPath } from "@/lib/taskPaths";
-import type { CrossProjectContainersTreeResponse, TaskDetail } from "@webwrkq/shared";
+import type { CrossProjectContainersTreeResponse, TaskDetail } from "@workboard/shared";
 import { useEffect, useMemo, useState } from "react";
 
 type ProjectTree = CrossProjectContainersTreeResponse["projects"][number];

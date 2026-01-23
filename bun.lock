@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "webwrkq",
+      "name": "workboard",
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "lefthook": "^2.0.15",
@@ -10,7 +10,7 @@
       },
     },
     "apps/api": {
-      "name": "@webwrkq/api",
+      "name": "@workboard/api",
       "version": "0.1.0",
       "dependencies": {
         "dotenv": "^16.4.5",
@@ -23,7 +23,7 @@
       },
     },
     "apps/web": {
-      "name": "@webwrkq/web",
+      "name": "@workboard/web",
       "version": "0.1.0",
       "dependencies": {
         "@codemirror/lang-markdown": "^6.5.0",
@@ -66,7 +66,7 @@
       },
     },
     "packages/shared": {
-      "name": "@webwrkq/shared",
+      "name": "@workboard/shared",
       "version": "0.1.0",
       "dependencies": {
         "zod": "^3.24.2",
@@ -473,11 +473,11 @@
 
     "@vitejs/plugin-react": ["@vitejs/plugin-react@4.7.0", "", { "dependencies": { "@babel/core": "^7.28.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-beta.27", "@types/babel__core": "^7.20.5", "react-refresh": "^0.17.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA=="],
 
-    "@webwrkq/api": ["@webwrkq/api@workspace:apps/api"],
+    "@workboard/api": ["@workboard/api@workspace:apps/api"],
 
-    "@webwrkq/shared": ["@webwrkq/shared@workspace:packages/shared"],
+    "@workboard/shared": ["@workboard/shared@workspace:packages/shared"],
 
-    "@webwrkq/web": ["@webwrkq/web@workspace:apps/web"],
+    "@workboard/web": ["@workboard/web@workspace:apps/web"],
 
     "accepts": ["accepts@1.3.8", "", { "dependencies": { "mime-types": "~2.1.34", "negotiator": "0.6.3" } }, "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw=="],
 

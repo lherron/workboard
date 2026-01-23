@@ -16,7 +16,7 @@ import type {
 	TaskListItem,
 	TaskState,
 	UpdateTaskRequest,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ProjectTree = CrossProjectContainersTreeResponse["projects"][number];

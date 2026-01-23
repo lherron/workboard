@@ -8,24 +8,27 @@
  * - ChatInput footer with Enter-to-submit
  */
 
+import { launchTerminal } from "@/api/client";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { RunCard } from "@/components/chat/RunCard";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useCpSessionStream } from "@/hooks/useCpSessionStream";
 import { detectLiveRun, groupEventsByRun } from "@/lib/chat";
 import { cn } from "@/lib/utils";
-import { Loader2, MessageSquarePlus, Pin, PinOff, Radio, WifiOff, X } from "lucide-react";
-import { useMemo } from "react";
+import { Loader2, MessageSquarePlus, Pin, PinOff, Radio, Terminal, WifiOff, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { useConcierge } from "./useConcierge";
 
 const PANEL_WIDTH = 380;
 const THEME_COLOR = "#f59e0b"; // amber for concierge
+const PROJECT_ID = "taskboard";
 
 export function ConciergePanel() {
 	const {
 		isOpen,
 		isPinned,
 		sessionId,
+		sdkSessionId,
 		isConnecting: isLoadingRoster,
 		isSubmitting,
 		runs,
@@ -81,6 +84,34 @@ export function ConciergePanel() {
 		await newChat();
 	};
 
+	// Terminal launch state
+	const [isLaunchingTerminal, setIsLaunchingTerminal] = useState(false);
+
+	// Handle opening terminal to resume session
+	const handleOpenTerminal = useCallback(async () => {
+		if (!sdkSessionId || hasLiveRun) return;
+
+		setIsLaunchingTerminal(true);
+		try {
+			await launchTerminal({
+				projectId: PROJECT_ID,
+				tool: {
+					kind: "shell",
+					command: `asp run ui-concierge --resume ${sdkSessionId}`,
+				},
+				statusbar: {
+					right: `concierge@${PROJECT_ID}`,
+				},
+				foregroundColor: "#e8d4f8",
+				backgroundColor: "#1a0d1a",
+			});
+		} catch (err) {
+			console.error("[Concierge] Failed to open terminal:", err);
+		} finally {
+			setIsLaunchingTerminal(false);
+		}
+	}, [sdkSessionId, hasLiveRun]);
+
 	const isConnecting = isLoadingRoster || isConnectingSSE;
 	const error = rosterError || sseError;
 
@@ -128,6 +159,26 @@ export function ConciergePanel() {
 							<span className="text-[9px] font-mono text-slate-600 truncate max-w-[80px]">
 								{sessionId.slice(0, 8)}...
 							</span>
+						)}
+
+						{/* Terminal button - resume session in Claude Code */}
+						{sessionId && (
+							<button
+								onClick={handleOpenTerminal}
+								disabled={!sdkSessionId || hasLiveRun || isLaunchingTerminal}
+								className={cn(
+									"p-1.5 rounded transition-colors",
+									"text-slate-500 hover:text-amber-400 hover:bg-slate-800",
+									"disabled:opacity-40 disabled:cursor-not-allowed",
+								)}
+								title={sdkSessionId ? "Resume in terminal" : "No SDK session available"}
+							>
+								{isLaunchingTerminal ? (
+									<Loader2 className="w-4 h-4 animate-spin" />
+								) : (
+									<Terminal className="w-4 h-4" />
+								)}
+							</button>
 						)}
 
 						{/* New chat button */}

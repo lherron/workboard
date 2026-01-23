@@ -19,7 +19,7 @@ Justfile doesn't have it, add it.
 - Web app uses Tailwind-style utility classes and shadcn/ui components under `apps/web/src` (`components/ui`, `lib/utils.ts`). API entrypoints are `apps/api/src/index.js` (server) and `apps/api/src/dev.js` (dev runner).
 
 ## Agent CLI Usage
-- When running shell commands, set the `workdir` parameter instead of prefixing commands with `cd`; use `/Users/lherron/projects/webwrkq` as the workspace root.
+- When running shell commands, set the `workdir` parameter instead of prefixing commands with `cd`; use `/Users/lherron/projects/workboard` as the workspace root.
 
 ## Create under a different project (overrides WRKQ_PROJECT_ROOT)
 wrkq touch --project rex inbox/new-task -t "New Task"
@@ -29,14 +29,14 @@ wrkq touch --project rex inbox/new-task -t "New Task"
 - Install: `bun install`.
 - Develop both surfaces: `bun dev` (runs web + api in parallel).
 - Build all packages: `bun run build`.
-- Web-only: `bun run --filter '@webwrkq/web' dev|build|preview`.
-- API-only: `bun run --filter '@webwrkq/api' dev|start`.
+- Web-only: `bun run --filter '@workboard/web' dev|build|preview`.
+- API-only: `bun run --filter '@workboard/api' dev|start`.
 
 ## Coding Style & Naming Conventions
 - TypeScript + ES modules across all packages. Prefer named exports; keep files small and feature-scoped.
 - Formatting is enforced via Biome (`bun run lint` to check, `bun run lint:fix` to fix). Use Biome + TS for consistency.
 - React components: PascalCase filenames; hooks/utilities use camelCase. Tailwind utility strings go in className; shared class merging via `cn()`.
-- API route handlers stay in `apps/api/src`; reuse types from `@webwrkq/shared` to avoid drift.
+- API route handlers stay in `apps/api/src`; reuse types from `@workboard/shared` to avoid drift.
 
 ## Testing Guidelines
 - Always run the relevant tests after making changes; if no automated tests cover the change, do the manual smoke checks.
@@ -57,8 +57,8 @@ wrkq touch --project rex inbox/new-task -t "New Task"
 - **Always invoke `wrkq` directly from PATH (e.g., `wrkq ...`); do not call `../wrkq/bin/wrkq` or other relative paths.** The binary is already available on PATH for this workspace and picks up `.env.local` automatically.
 - This project has a `.env.local` with WRKQ env vars, and `.env.local` is read automatically by `wrkq`; you do not need to specify WRKQ env vars when you run it.
 - Copy/paste usage examples (all assume PATH invocation):
-  - `wrkq tree webwrkq` - show the project/task tree under this repo.
-  - `wrkq touch webwrkq/m2/new-task --title "My new task"` - create a task with a friendly title.
+  - `wrkq tree workboard` - show the project/task tree under this repo.
+  - `wrkq touch workboard/m2/new-task --title "My new task"` - create a task with a friendly title.
   - `wrkq cat T-00005` - inspect a task's front matter + body.
   - `wrkq apply T-00005 - --body-only --format md <<'EOF'
 Body text here
@@ -66,10 +66,10 @@ EOF` - update body via stdin while keeping metadata.
 - If you see commands trying to run `../wrkq/bin/wrkq`, stop and switch to the PATH form above; the PATH binary already respects `.env.local` defaults.
 - Basic workflow:
   - Initialize a DB if needed with `wrkq init` (uses `WRKQ_DB_PATH` by default).
-  - Create and organize work with `wrkq mkdir`, `wrkq touch`, `wrkq ls`, and `wrkq tree` (for example a `webwrkq/` container subtree for this repo).
+  - Create and organize work with `wrkq mkdir`, `wrkq touch`, `wrkq ls`, and `wrkq tree` (for example a `workboard/` container subtree for this repo).
   - Update task fields with `wrkq set T-00012 state=in_progress priority=1` and edit task bodies/specs with `wrkq edit T-00012` or `wrkq apply`.
   - Inspect history and debug issues with `wrkq log <ID>`, `wrkq stat`, `wrkq find`, and `wrkq watch`.
 - When designing or changing the web/API surfaces in this repo, treat `wrkq` as the source of truth for data shape and behavior:
   - Prefer looking at `wrkq cat <task>` output and the existing database schema before inventing new fields.
   - Keep any browser UI/API contracts compatible with `wrkq` IDs, slugs, etags, and event-log semantics.
-- For personal task tracking while working on this repo, you can create a dedicated container tree (for example `wrkq/webwrkq/**`) and manage your work entirely via `wrkq` instead of ad-hoc TODO files.
+- For personal task tracking while working on this repo, you can create a dedicated container tree (for example `wrkq/workboard/**`) and manage your work entirely via `wrkq` instead of ad-hoc TODO files.

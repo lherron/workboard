@@ -1,6 +1,6 @@
 import { fetchWorkspaces } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { Workspace } from "@webwrkq/shared";
+import type { Workspace } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 
 type SettingsPanelProps = {
@@ -390,7 +390,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 				<footer className="relative flex-shrink-0 px-6 py-3 border-t border-border/30 bg-secondary/20">
 					<div className="flex items-center justify-between">
 						<span className="text-[8px] font-mono text-muted-foreground/30 uppercase tracking-[0.2em]">
-							wrkq taskboard v0.1
+							workboard v0.1
 						</span>
 						<div className="flex items-center gap-2 text-[8px] font-mono text-muted-foreground/30">
 							<span className="uppercase tracking-wider">Press</span>

@@ -11,7 +11,11 @@ import { TerminalButtons } from "@/components/TerminalButtons";
 import { formatDate, formatDateTime } from "@/lib/datetime";
 import { formatProjectPath } from "@/lib/taskPaths";
 import { cn } from "@/lib/utils";
-import type { CrossProjectContainersTreeResponse, TaskComment, TaskDetail } from "@webwrkq/shared";
+import type {
+	CrossProjectContainersTreeResponse,
+	TaskComment,
+	TaskDetail,
+} from "@workboard/shared";
 import { useMemo, useState } from "react";
 
 type WorkspaceTree = CrossProjectContainersTreeResponse["projects"][number];

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <!-- Cyan glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Radial gradient for center node -->
+    <radialGradient id="centerGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00d9ff"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </radialGradient>
+    <!-- Linear gradient for accent -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b9d"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="32" height="32" rx="6" fill="#0a0e27"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="16" y1="4" x2="16" y2="28" stroke="#1e1b4b" stroke-width="0.5" opacity="0.4"/>
+  <line x1="4" y1="16" x2="28" y2="16" stroke="#1e1b4b" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Connection lines from center -->
+  <line x1="16" y1="16" x2="7" y2="7" stroke="#00d9ff" stroke-width="1.5" opacity="0.5"/>
+  <line x1="16" y1="16" x2="25" y2="7" stroke="#00d9ff" stroke-width="1.5" opacity="0.5"/>
+  <line x1="16" y1="16" x2="7" y2="25" stroke="#00d9ff" stroke-width="1.5" opacity="0.5"/>
+  <line x1="16" y1="16" x2="25" y2="25" stroke="#00d9ff" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Corner nodes -->
+  <circle cx="7" cy="7" r="2.5" fill="#0a0e27" stroke="#00d9ff" stroke-width="1"/>
+  <circle cx="25" cy="7" r="2.5" fill="#0a0e27" stroke="#00d9ff" stroke-width="1"/>
+  <circle cx="7" cy="25" r="2.5" fill="#0a0e27" stroke="#00d9ff" stroke-width="1"/>
+  <circle cx="25" cy="25" r="2.5" fill="#0a0e27" stroke="#00d9ff" stroke-width="1"/>
+
+  <!-- Center node with glow -->
+  <circle cx="16" cy="16" r="5" fill="url(#centerGrad)" filter="url(#glow)"/>
+
+  <!-- Inner accent ring -->
+  <circle cx="16" cy="16" r="2" fill="url(#accentGrad)"/>
+</svg>

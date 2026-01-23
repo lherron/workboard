@@ -40,10 +40,10 @@ const mockTask = {
 const mockWorkspaces = {
 	workspaces: [
 		{
-			id: "webwrkq",
-			name: "webwrkq",
-			root: "/Users/test/projects/webwrkq",
-			dbPath: ".wrkq/webwrkq.db",
+			id: "workboard",
+			name: "workboard",
+			root: "/Users/test/projects/workboard",
+			dbPath: ".wrkq/workboard.db",
 			enabled: true,
 		},
 	],
@@ -57,7 +57,7 @@ const mockComments = {
 test.describe("Terminal Button on Prompt Shaping Page", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock the API endpoints
-		await page.route("**/admin/tasks/webwrkq/tasks/T-00001", async (route) => {
+		await page.route("**/admin/tasks/workboard/tasks/T-00001", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -65,7 +65,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 			});
 		});
 
-		await page.route("**/admin/tasks/webwrkq/tasks/T-00001/comments", async (route) => {
+		await page.route("**/admin/tasks/workboard/tasks/T-00001/comments", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -83,7 +83,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 	});
 
 	test("terminal button is visible and enabled after workspace loads", async ({ page }) => {
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 		await page.waitForLoadState("networkidle");
 
 		// Terminal button (Claude triage) should be visible
@@ -115,7 +115,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 			});
 		});
 
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for workspace to load so button is enabled
@@ -144,7 +144,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 			});
 		});
 
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 		await page.waitForLoadState("networkidle");
 		await page.waitForTimeout(1000);
 
@@ -166,7 +166,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 	});
 
 	test("terminal button tooltip shows triage action", async ({ page }) => {
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 		await page.waitForLoadState("networkidle");
 
 		const terminalButton = page.getByTestId("open-terminal-button");
@@ -191,7 +191,7 @@ test.describe("Terminal Button on Prompt Shaping Page", () => {
 			});
 		});
 
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 
 		const terminalButton = page.getByTestId("open-terminal-button");
 		await expect(terminalButton).toBeVisible({ timeout: 10000 });
@@ -207,7 +207,7 @@ test.describe("Terminal API Integration", () => {
 	test("terminal API endpoint is reachable through proxy", async ({ request }) => {
 		// This test verifies the Vite proxy is configured correctly
 		// It should reach the control-plane, not 404
-		const response = await request.post("http://localhost:5150/api/terminal/new", {
+		const response = await request.post("http://localhost:5160/api/terminal/new", {
 			data: {
 				location: "tab",
 				working_directory: "/tmp",

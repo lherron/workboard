@@ -8,8 +8,8 @@
     "moduleResolution": "Bundler",
     "paths": {
       "@/*": ["src/*"],
-      "@webwrkq/shared": ["../../packages/shared/src"],
-      "@webwrkq/shared/*": ["../../packages/shared/src/*"]
+      "@workboard/shared": ["../../packages/shared/src"],
+      "@workboard/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src", "vite.config.ts", "../../packages/shared/src/**/*.ts"],

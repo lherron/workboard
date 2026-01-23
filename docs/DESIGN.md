@@ -2,7 +2,7 @@
 
 ## North Star
 
-webwrkq is a **browser UI for the `wrkq` CLI**. The interface should feel like a natural extension of the terminal, not a departure from it. We're building a GUI that respects CLI conventions and aesthetics, not replacing them with typical web application patterns.
+workboard is a **browser UI for the `wrkq` CLI**. The interface should feel like a natural extension of the terminal, not a departure from it. We're building a GUI that respects CLI conventions and aesthetics, not replacing them with typical web application patterns.
 
 ## Core Principles
 

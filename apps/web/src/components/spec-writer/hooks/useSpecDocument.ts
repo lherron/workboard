@@ -5,7 +5,7 @@ import {
 	fetchWorkspaceSpec,
 	fetchWorkspaceSpecs,
 } from "@/api/client";
-import type { SpecDocument, SpecManifest } from "@webwrkq/shared";
+import type { SpecDocument, SpecManifest } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 

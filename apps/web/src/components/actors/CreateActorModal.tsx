@@ -1,6 +1,6 @@
 import { type ApiClientError, createActor } from "@/api/client";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import type { ActorRole } from "@webwrkq/shared";
+import type { ActorRole } from "@workboard/shared";
 import { useEffect, useState } from "react";
 
 type CreateActorModalProps = {

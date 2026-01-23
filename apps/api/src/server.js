@@ -1,6 +1,20 @@
+import { createReadStream, existsSync, statSync } from "fs";
+import { extname } from "path";
 import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import morgan from "morgan";
+
+// MIME types for common image formats
+const IMAGE_MIME_TYPES = {
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif": "image/gif",
+	".webp": "image/webp",
+	".svg": "image/svg+xml",
+	".bmp": "image/bmp",
+	".ico": "image/x-icon",
+};
 
 export function createServer({ cpUrl }) {
 	const app = express();
@@ -9,6 +23,44 @@ export function createServer({ cpUrl }) {
 	app.use(morgan("dev"));
 	// Only parse JSON for webhook endpoints so proxied requests keep their body.
 	app.use("/api/webhooks", express.json({ limit: "1mb" }));
+
+	// Serve files from filesystem (for displaying images from Read tool results)
+	app.get("/api/files", (req, res) => {
+		const filePath = req.query.path;
+		if (typeof filePath !== "string" || !filePath) {
+			res.status(400).json({ error: "Missing path parameter" });
+			return;
+		}
+
+		// Security: only allow absolute paths and check file exists
+		if (!filePath.startsWith("/")) {
+			res.status(400).json({ error: "Path must be absolute" });
+			return;
+		}
+
+		if (!existsSync(filePath)) {
+			res.status(404).json({ error: "File not found" });
+			return;
+		}
+
+		const ext = extname(filePath).toLowerCase();
+		const mimeType = IMAGE_MIME_TYPES[ext];
+
+		if (!mimeType) {
+			res.status(400).json({ error: "Unsupported file type" });
+			return;
+		}
+
+		try {
+			const stat = statSync(filePath);
+			res.setHeader("Content-Type", mimeType);
+			res.setHeader("Content-Length", stat.size);
+			res.setHeader("Cache-Control", "public, max-age=3600");
+			createReadStream(filePath).pipe(res);
+		} catch (_err) {
+			res.status(500).json({ error: "Failed to read file" });
+		}
+	});
 
 	app.post("/api/webhooks/wrkq", (req, res) => {
 		const payload = req.body ?? {};

@@ -1,21 +1,21 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Live Spec Writer tests - require control-plane and webwrkq running.
+ * Live Spec Writer tests - require control-plane and workboard running.
  *
- * Run with: PLAYWRIGHT_BASE_URL=http://localhost:18450 npx playwright test tests/spec-writer-live.spec.ts
+ * Run with: PLAYWRIGHT_BASE_URL=http://localhost:18460 npx playwright test tests/spec-writer-live.spec.ts
  *
  * Prerequisites:
- * - stackctl status dev shows webwrkq running
+ * - stackctl status dev shows workboard running
  * - A spec exists (create with: curl -X POST -H "x-cp-token: dev" -H "x-wrkq-actor: lance"
- *   -H "Content-Type: application/json" "http://127.0.0.1:18451/admin/projects/taskboard/specs"
+ *   -H "Content-Type: application/json" "http://127.0.0.1:18461/admin/projects/workboard/specs"
  *   -d '{"title":"Test Spec"}')
  *
  * Note: Architect chat requires the project to have a session backend configured.
  * If /admin/runs returns 500, the project needs session backend setup in control-plane.
  */
 
-const projectId = process.env.E2E_PROJECT_ID || "taskboard";
+const projectId = process.env.E2E_PROJECT_ID || "workboard";
 const specSlug = process.env.E2E_SPEC_SLUG || "test-authentication-system";
 
 test.describe("Spec Writer Live", () => {

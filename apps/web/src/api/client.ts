@@ -36,7 +36,7 @@ import {
 	wrkqActorResponseSchema,
 	wrkqActorsResponseSchema,
 	wrkqApiErrorSchema,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { type ZodSchema, z } from "zod";
 
 export type ApiClientError = {
@@ -949,7 +949,7 @@ import {
 	type SpecResponse,
 	specListResponseSchema,
 	specResponseSchema,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 
 /**
  * Fetch all specs for a workspace.
@@ -1086,8 +1086,10 @@ export async function deleteWorkspaceSpec(projectId: string, specSlug: string): 
 
 const projectRosterMemberSessionSchema = z.object({
 	activeSessionId: z.string().nullable(),
+	harnessSessionId: z.string().nullable().optional(),
 	priorSessionIds: z.array(z.string()).optional(),
 	sessionStatus: z.string().optional(),
+	lastActivityAt: z.number().optional(),
 });
 
 const projectRosterMemberSchema = z.object({
@@ -1096,21 +1098,36 @@ const projectRosterMemberSchema = z.object({
 	persona: z.string(),
 	agentTarget: z.string(),
 	model: z.string().optional(),
+	backendKind: z.string().optional(),
+	harness: z.union([z.string(), z.record(z.unknown())]).optional(),
 	state: z.enum(["active", "paused", "retired"]),
 	session: projectRosterMemberSessionSchema,
+	run: z
+		.object({
+			activeRunId: z.string().optional(),
+			activeRunStatus: z.string().optional(),
+			lastCompletedRunId: z.string().optional(),
+			lastOutcome: z.string().optional(),
+			awaitingPermission: z.boolean().optional(),
+		})
+		.optional(),
+	createdAt: z.number().optional(),
+	createdBy: z.record(z.unknown()).optional(),
+	updatedAt: z.number().optional(),
+	updatedBy: z.record(z.unknown()).optional(),
 });
 
 const projectRosterResponseSchema = z.object({
 	roster: z
 		.object({
+			v: z.number(),
+			rev: z.number(),
+			coordinatorMemberId: z.string().nullable().optional(),
 			members: z.array(projectRosterMemberSchema),
+			createdAt: z.number(),
+			updatedAt: z.number(),
 		})
 		.nullable(),
-	view: z
-		.object({
-			members: z.array(projectRosterMemberSchema),
-		})
-		.optional(),
 });
 
 const projectAskResponseSchema = z.object({

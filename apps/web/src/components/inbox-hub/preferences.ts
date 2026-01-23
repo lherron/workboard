@@ -1,4 +1,4 @@
-import type { TaskState } from "@webwrkq/shared";
+import type { TaskState } from "@workboard/shared";
 import {
 	CARD_SIZES,
 	type CardSize,

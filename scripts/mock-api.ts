@@ -197,7 +197,7 @@ const mockTasks: Record<string, unknown[]> = {
 		{
 			uuid: "t7",
 			id: "T-00007",
-			slug: "webwrkq-discover",
+			slug: "workboard-discover",
 			title: "Webwrkq should discover wrkq databases from control-panel",
 			state: "open",
 			priority: 1,
@@ -214,7 +214,7 @@ const mockTasks: Record<string, unknown[]> = {
 			uuid: "t8",
 			id: "T-00008",
 			slug: "add-wrkq-task-view",
-			title: "Add wrkq task view/create to admin-ui (deprecate webwrkq?)",
+			title: "Add wrkq task view/create to admin-ui (deprecate workboard?)",
 			state: "open",
 			priority: 2,
 			kind: "task",

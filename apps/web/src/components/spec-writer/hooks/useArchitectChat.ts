@@ -6,7 +6,7 @@ import {
 	type SpecMutation,
 	type SpecMutationsBlock,
 	specMutationsBlockSchema,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyMutations } from "../lib/patch";
 

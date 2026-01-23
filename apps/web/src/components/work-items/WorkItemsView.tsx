@@ -1,8 +1,7 @@
 import { type WorkItem, type WorkItemRun, fetchWorkItemRuns, fetchWorkItems } from "@/api/client";
 import { useAppNavigation } from "@/hooks/useNavigation";
-import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { type ColumnId, RunColumn } from "./RunColumn";
 import { RunDetailModal } from "./RunDetailModal";
 
@@ -34,6 +33,8 @@ type WebhookPayload = {
 export function WorkItemsView() {
 	const { goToInboxHubTask } = useAppNavigation();
 	const [, setLocation] = useLocation();
+	const params = useParams<{ projectId: string }>();
+	const { projectId } = params;
 
 	// Data state
 	const [workItems, setWorkItems] = useState<WorkItemWithRun[]>([]);
@@ -168,9 +169,9 @@ export function WorkItemsView() {
 	// Navigate to roster view on double-click or Enter
 	const handleOpenRoster = useCallback(
 		(workItem: WorkItemWithRun) => {
-			setLocation(`/work-items/${workItem.workItemId}/roster`);
+			setLocation(`/projects/${projectId}/work-items/${workItem.workItemId}/roster`);
 		},
-		[setLocation],
+		[setLocation, projectId],
 	);
 
 	// Open modal (kept for legacy/fallback)
@@ -334,10 +335,10 @@ export function WorkItemsView() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-full">
+			<div className="flex items-center justify-center h-full bg-[#0a0e27]">
 				<div className="flex flex-col items-center gap-4">
-					<div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-					<p className="text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+					<div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+					<p className="text-[11px] text-cyan-300/60 uppercase tracking-wider">
 						Loading work items...
 					</p>
 				</div>
@@ -347,7 +348,7 @@ export function WorkItemsView() {
 
 	if (error) {
 		return (
-			<div className="flex items-center justify-center h-full">
+			<div className="flex items-center justify-center h-full bg-[#0a0e27]">
 				<div className="flex flex-col items-center gap-4 max-w-md text-center">
 					<div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
 						<svg
@@ -363,14 +364,14 @@ export function WorkItemsView() {
 							<path d="M15 9l-6 6M9 9l6 6" strokeLinecap="round" />
 						</svg>
 					</div>
-					<p className="text-[13px] text-foreground/80">{error}</p>
+					<p className="text-[13px] text-cyan-100">{error}</p>
 					<button
 						onClick={() => {
 							setLoading(true);
 							setError(null);
 							fetchData();
 						}}
-						className="px-4 py-2 text-[11px] font-medium uppercase tracking-wider border border-border/50 hover:bg-secondary/50 transition-colors"
+						className="px-4 py-2 text-[11px] font-medium uppercase tracking-wider border border-indigo-700/50 hover:bg-indigo-900/30 transition-colors text-cyan-200"
 					>
 						Retry
 					</button>
@@ -380,152 +381,154 @@ export function WorkItemsView() {
 	}
 
 	return (
-		<div className="flex flex-col h-full">
-			{/* Header - Industrial ops dashboard style */}
-			<header className="relative border-b border-border/40 bg-secondary/30">
-				{/* Top accent line */}
-				<div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+		<div className="flex flex-col h-screen overflow-hidden bg-[#0a0e27] relative">
+			{/* Cyberpunk gradient background */}
+			<div
+				className="absolute inset-0 opacity-40 pointer-events-none"
+				style={{
+					backgroundImage: `radial-gradient(circle at 20% 30%, rgba(0, 217, 255, 0.08) 0%, transparent 50%),
+                                      radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.06) 0%, transparent 40%),
+                                      radial-gradient(circle at 50% 50%, rgba(255, 107, 157, 0.04) 0%, transparent 60%)`,
+				}}
+			/>
+			{/* Noise texture overlay */}
+			<div
+				className="absolute inset-0 opacity-[0.015] pointer-events-none mix-blend-overlay"
+				style={{
+					backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+				}}
+			/>
 
-				<div className="px-6 py-4">
+			{/* Header */}
+			<header className="relative shrink-0 border-b border-indigo-900/30 bg-[#0d1133]/60 backdrop-blur-sm">
+				{/* Top accent line */}
+				<div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
+
+				<div className="px-8 py-4">
 					<div className="flex items-center justify-between">
-						{/* Title block */}
+						{/* Left: Back + Title */}
 						<div className="flex items-center gap-4">
-							<div className="flex items-center gap-3">
-								{/* Industrial logo/icon */}
-								<div className="w-8 h-8 border border-primary/40 flex items-center justify-center bg-primary/5">
-									<svg
-										width="16"
-										height="16"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										className="text-primary"
-									>
-										<circle cx="12" cy="12" r="10" />
-										<polyline points="12 6 12 12 16 14" />
-									</svg>
-								</div>
-								<div>
-									<h1 className="text-[14px] font-bold tracking-wide uppercase text-foreground">
-										Work Items
-									</h1>
-									<p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-										Run Execution Dashboard
-									</p>
-								</div>
+							<Link
+								href={`/projects/${projectId}`}
+								className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-indigo-700/50 hover:bg-indigo-900/30 transition-colors text-cyan-200 rounded"
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									className="text-cyan-400/70"
+								>
+									<path d="M19 12H5M12 19l-7-7 7-7" />
+								</svg>
+								Back
+							</Link>
+
+							<div className="h-8 w-px bg-indigo-700/50" />
+
+							{/* Project icon */}
+							<div className="w-12 h-12 rounded-xl border border-cyan-400/30 flex items-center justify-center bg-gradient-to-br from-cyan-400/10 to-indigo-900/50">
+								<svg
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.5"
+									className="text-cyan-400"
+								>
+									<circle cx="12" cy="12" r="10" />
+									<polyline points="12 6 12 12 16 14" />
+								</svg>
+							</div>
+							<div>
+								<h1 className="text-[18px] font-bold tracking-wide uppercase text-cyan-100">
+									Work Items
+								</h1>
+								<p className="text-[11px] text-cyan-400/70 font-mono tracking-wider">
+									{projectId} • Run Execution
+								</p>
 							</div>
 						</div>
 
-						{/* Status indicators */}
+						{/* Right: Status indicators */}
 						<div className="flex items-center gap-6">
 							{/* Not Started indicator */}
 							{notStartedCount > 0 && (
-								<div className="flex items-center gap-2">
-									<span className="w-2 h-2 rounded-full bg-zinc-500" />
-									<span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-										{notStartedCount} Pending
+								<div className="flex flex-col items-end">
+									<div className="flex items-center gap-2">
+										<span className="text-[20px] font-bold font-mono tabular-nums text-indigo-400">
+											{notStartedCount}
+										</span>
+									</div>
+									<span className="text-[9px] uppercase tracking-widest text-indigo-400/60">
+										Pending
 									</span>
 								</div>
 							)}
 
+							{notStartedCount > 0 && <div className="h-8 w-px bg-indigo-700/50" />}
+
 							{/* Running indicator - pulsing */}
-							<div className="flex items-center gap-2">
-								<span className="relative flex h-2 w-2">
+							<div className="flex flex-col items-end">
+								<div className="flex items-center gap-2">
 									{runningCount > 0 && (
-										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+										<span className="relative flex h-2 w-2">
+											<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+											<span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+										</span>
 									)}
-									<span
-										className={cn(
-											"relative inline-flex rounded-full h-2 w-2",
-											runningCount > 0 ? "bg-emerald-400" : "bg-zinc-600",
-										)}
-									/>
-								</span>
-								<span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-									{runningCount} Running
+									<span className="text-[20px] font-bold font-mono tabular-nums text-cyan-400">
+										{runningCount}
+									</span>
+								</div>
+								<span className="text-[9px] uppercase tracking-widest text-indigo-400/60">
+									Running
 								</span>
 							</div>
 
+							<div className="h-8 w-px bg-indigo-700/50" />
+
 							{/* Queued indicator */}
-							<div className="flex items-center gap-2">
-								<span className="w-2 h-2 rounded-full bg-cyan-400" />
-								<span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-									{queuedCount} Queued
+							<div className="flex flex-col items-end">
+								<span className="text-[20px] font-bold font-mono tabular-nums text-violet-400">
+									{queuedCount}
+								</span>
+								<span className="text-[9px] uppercase tracking-widest text-indigo-400/60">
+									Queued
 								</span>
 							</div>
 
 							{/* Stopped indicator */}
 							{stoppedCount > 0 && (
-								<div className="flex items-center gap-2">
-									<span className="w-2 h-2 rounded-full bg-red-400" />
-									<span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
-										{stoppedCount} Stopped
-									</span>
-								</div>
+								<>
+									<div className="h-8 w-px bg-indigo-700/50" />
+									<div className="flex flex-col items-end">
+										<span className="text-[20px] font-bold font-mono tabular-nums text-pink-400">
+											{stoppedCount}
+										</span>
+										<span className="text-[9px] uppercase tracking-widest text-indigo-400/60">
+											Stopped
+										</span>
+									</div>
+								</>
 							)}
 
+							<div className="h-8 w-px bg-indigo-700/50" />
+
 							{/* Total */}
-							<div className="pl-4 border-l border-border/30">
-								<span className="text-[10px] font-mono text-muted-foreground/60">
-									{totalWorkItems} total
+							<div className="flex flex-col items-end">
+								<span className="text-[20px] font-bold font-mono tabular-nums text-indigo-300">
+									{totalWorkItems}
+								</span>
+								<span className="text-[9px] uppercase tracking-widest text-indigo-400/60">
+									Total
 								</span>
 							</div>
 						</div>
 					</div>
-
-					{/* Keyboard hints */}
-					<div className="mt-3 flex items-center gap-4 text-[9px] text-muted-foreground/40">
-						<span>
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								h/l
-							</kbd>{" "}
-							or{" "}
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								←/→
-							</kbd>{" "}
-							columns
-						</span>
-						<span>
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								j/k
-							</kbd>{" "}
-							or{" "}
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								↑/↓
-							</kbd>{" "}
-							items
-						</span>
-						<span>
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								1-5
-							</kbd>{" "}
-							jump to column
-						</span>
-						<span>
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								Enter
-							</kbd>{" "}
-							open task
-						</span>
-						<span>
-							<kbd className="px-1 py-0.5 bg-secondary/60 border border-border/30 rounded text-[8px]">
-								r
-							</kbd>{" "}
-							refresh
-						</span>
-					</div>
-				</div>
-
-				{/* Scan line effect */}
-				<div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.015]">
-					{[...Array(12)].map((_, i) => (
-						<div
-							key={i}
-							className="absolute left-0 right-0 h-px bg-white"
-							style={{ top: `${(i + 1) * 8}%` }}
-						/>
-					))}
 				</div>
 			</header>
 
@@ -548,30 +551,60 @@ export function WorkItemsView() {
 				</div>
 			</div>
 
-			{/* Footer - grid pattern and timestamp */}
-			<footer className="relative border-t border-border/30 bg-secondary/20 px-6 py-2">
-				<div className="flex items-center justify-between text-[9px] text-muted-foreground/40">
-					<span className="font-mono">WORK ITEMS v1.0</span>
-					<span className="font-mono">
-						Last updated:{" "}
-						{new Date().toLocaleTimeString("en-US", {
-							hour: "numeric",
-							minute: "2-digit",
-							second: "2-digit",
-						})}
-					</span>
+			{/* Footer */}
+			<div className="shrink-0 px-8 py-3 border-t border-indigo-900/30 bg-[#0d1133]/60 backdrop-blur-sm relative">
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-6 text-[9px] text-indigo-400/60">
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								h/l
+							</kbd>{" "}
+							or{" "}
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								←/→
+							</kbd>{" "}
+							columns
+						</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								j/k
+							</kbd>{" "}
+							or{" "}
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								↑/↓
+							</kbd>{" "}
+							items
+						</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								1-5
+							</kbd>{" "}
+							jump
+						</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								⏎
+							</kbd>{" "}
+							open
+						</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								r
+							</kbd>{" "}
+							refresh
+						</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded text-[8px] text-cyan-300/70">
+								esc
+							</kbd>{" "}
+							back to project
+						</span>
+					</div>
+					<div className="text-[9px] text-indigo-400/50 font-mono">
+						{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} UTC
+					</div>
 				</div>
-
-				{/* Grid pattern overlay */}
-				<div className="absolute inset-0 pointer-events-none opacity-[0.02]">
-					<svg width="100%" height="100%">
-						<pattern id="footer-grid" width="16" height="16" patternUnits="userSpaceOnUse">
-							<path d="M 16 0 L 0 0 0 16" fill="none" stroke="white" strokeWidth="0.5" />
-						</pattern>
-						<rect width="100%" height="100%" fill="url(#footer-grid)" />
-					</svg>
-				</div>
-			</footer>
+			</div>
 
 			{/* Run Detail Modal */}
 			{modalWorkItem && (

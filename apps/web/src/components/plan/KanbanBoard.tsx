@@ -11,7 +11,7 @@ import {
 	useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type { CrossProjectTaskListItem } from "@webwrkq/shared";
+import type { CrossProjectTaskListItem } from "@workboard/shared";
 import { useCallback, useState } from "react";
 import { KanbanCard } from "./KanbanCard";
 import { KanbanColumn } from "./KanbanColumn";

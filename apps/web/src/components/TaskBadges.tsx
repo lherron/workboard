@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { TaskDetail, TaskListItem } from "@webwrkq/shared";
+import type { TaskDetail, TaskListItem } from "@workboard/shared";
 
 type TaskState = TaskListItem["state"] | TaskDetail["state"];
 

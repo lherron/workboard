@@ -20,7 +20,7 @@ import type {
 	TaskComment,
 	TaskDetail,
 	TaskState,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // State styling configuration (matches ContainerNavigator)

@@ -29,7 +29,7 @@ import {
 
 const STORAGE_KEY_OPEN = "concierge-open";
 const STORAGE_KEY_PINNED = "concierge-pinned";
-const PROJECT_ID = "taskboard";
+const PROJECT_ID = "workboard";
 const ROLE_NAME = "ui-concierge";
 const POLL_INTERVAL_MS = 5000;
 
@@ -37,6 +37,8 @@ export type ConciergeState = {
 	isOpen: boolean;
 	isPinned: boolean;
 	sessionId: string | null;
+	/** SDK session ID from runs (for terminal resume) */
+	sdkSessionId: string | null;
 	isConnecting: boolean;
 	isSubmitting: boolean;
 };
@@ -66,6 +68,7 @@ const defaultContext: ConciergeContextValue = {
 	isOpen: false,
 	isPinned: false,
 	sessionId: null,
+	sdkSessionId: null,
 	isConnecting: false,
 	isSubmitting: false,
 	runs: [],
@@ -109,6 +112,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 	const pendingSessionIdRef = useRef<string | null>(null);
 
 	const sessionId = member?.session.activeSessionId ?? null;
+	const sdkSessionId = member?.session.harnessSessionId ?? null;
 
 	// Persist open state
 	useEffect(() => {
@@ -127,7 +131,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 			setError(null);
 
 			const rosterResponse = await fetchProjectRoster(PROJECT_ID);
-			const members = rosterResponse.roster?.members ?? rosterResponse.view?.members ?? [];
+			const members = rosterResponse.roster?.members ?? [];
 			const implementer = members.find((m) => m.roleName === ROLE_NAME);
 			setMember(implementer ?? null);
 
@@ -227,6 +231,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 			isOpen,
 			isPinned,
 			sessionId,
+			sdkSessionId,
 			isConnecting,
 			isSubmitting,
 			runs: runsForChat,
@@ -243,6 +248,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 			isOpen,
 			isPinned,
 			sessionId,
+			sdkSessionId,
 			isConnecting,
 			isSubmitting,
 			runsForChat,

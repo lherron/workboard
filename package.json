@@ -1,17 +1,17 @@
 {
-  "name": "webwrkq",
+  "name": "workboard",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "bun run --filter '@webwrkq/web' dev & bun run --filter '@webwrkq/api' dev",
+    "dev": "bun run --filter '@workboard/web' dev & bun run --filter '@workboard/api' dev",
     "build": "bun run --filter '*' build",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "bun run --filter '*' typecheck",
     "format": "biome format --write .",
-    "test": "bun run --filter '@webwrkq/web' test"
+    "test": "bun run --filter '@workboard/web' test"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

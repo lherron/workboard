@@ -1,6 +1,6 @@
 import { type WorkItem, type WorkItemRun, fetchTaskDetail } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { TaskDetail } from "@webwrkq/shared";
+import type { TaskDetail } from "@workboard/shared";
 import { useEffect, useState } from "react";
 
 // Extended work item with latest run info

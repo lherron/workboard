@@ -1,5 +1,5 @@
 import { restoreTask, updateTask } from "@/api/client";
-import type { ProjectTaskListItem, TaskState } from "@webwrkq/shared";
+import type { ProjectTaskListItem, TaskState } from "@workboard/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InboxData, UndoEntry } from "./types";
 import { ACTION_STATES } from "./types";

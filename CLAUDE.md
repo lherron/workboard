@@ -31,7 +31,7 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 
 ## Project Overview
 
-This is **webwrkq**, a browser UI for the `wrkq` CLI task management system. The project is a Bun monorepo:
+This is **workboard**, a browser UI for the `wrkq` CLI task management system. The project is a Bun monorepo:
 - `apps/web` - React + Vite frontend with Tailwind CSS and shadcn/ui
 - `apps/api` - Express.js API proxy
 - `packages/shared` - Shared TypeScript types and Zod schemas
@@ -76,7 +76,7 @@ bun run lint:fix  # Auto-fix lint issues
 The web UI talks to control-plane (separate service, port 7420) which manages wrkq databases:
 - All API calls go through `/admin/wrkq/*` endpoints (proxied by Vite dev server)
 - Authentication via `x-cp-token` header
-- Schema contracts defined in `@webwrkq/shared`
+- Schema contracts defined in `@workboard/shared`
 
 ### Web Layer (apps/web/src)
 
@@ -159,7 +159,7 @@ bun run test       # Run Playwright tests
 For manual smoke tests:
 ```bash
 bun dev
-# Visit http://localhost:5150 (requires control-plane on port 7420)
+# Visit http://localhost:5160 (requires control-plane on port 7420)
 ```
 
 ## Environment & Configuration
@@ -185,7 +185,7 @@ VITE_CP_TOKEN=dev                 # Auth token for control-plane API
 **Adding a new UI component:**
 1. Create component in `apps/web/src/components/`
 2. Use existing shadcn/ui primitives from `components/ui/`
-3. Import shared types from `@webwrkq/shared`
+3. Import shared types from `@workboard/shared`
 4. Style with Tailwind classes; use `cn()` for conditional classes
 
 **Adding a new API client function:**
@@ -209,8 +209,8 @@ VITE_CP_TOKEN=dev                 # Auth token for control-plane API
 
 TypeScript paths are configured in `tsconfig.base.json`:
 ```json
-"@webwrkq/shared": ["packages/shared/src"],
-"@webwrkq/shared/*": ["packages/shared/src/*"]
+"@workboard/shared": ["packages/shared/src"],
+"@workboard/shared/*": ["packages/shared/src/*"]
 ```
 
 Use these aliases in all packages for shared code imports.

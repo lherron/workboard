@@ -7,7 +7,7 @@ import { useAppNavigation } from "@/hooks/useNavigation";
 import { formatDateTime, formatDateTimeFull } from "@/lib/datetime";
 import { getSessionLaunch, getShortcutForScope, matchesShortcut } from "@/lib/sessionLaunches";
 import { cn } from "@/lib/utils";
-import type { TaskComment, TaskDetail, UpdateTaskRequest } from "@webwrkq/shared";
+import type { TaskComment, TaskDetail, UpdateTaskRequest } from "@workboard/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ═══════════════════════════════════════════════════════════════════════════════

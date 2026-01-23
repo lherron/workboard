@@ -7,7 +7,7 @@ import {
 	fetchWorkspaceTasks,
 } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { SpecManifest, TaskListItem } from "@webwrkq/shared";
+import type { SpecManifest, TaskListItem } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 
@@ -55,8 +55,7 @@ export function ProjectDetailRoute() {
 				// Fetch all data in parallel
 				const [rosterRes, runsRes, tasksRes, specsRes] = await Promise.allSettled([
 					fetchProjectRoster(projectId, signal).catch((err) => {
-						if ((err as { status?: number }).status === 404)
-							return { roster: null, view: { members: [] } };
+						if ((err as { status?: number }).status === 404) return { roster: null };
 						throw err;
 					}),
 					fetchProjectRuns(projectId, undefined, signal).catch(() => ({ runs: [] })),
@@ -69,9 +68,7 @@ export function ProjectDetailRoute() {
 				]);
 
 				const roster =
-					rosterRes.status === "fulfilled"
-						? (rosterRes.value.roster?.members ?? rosterRes.value.view?.members ?? [])
-						: [];
+					rosterRes.status === "fulfilled" ? (rosterRes.value.roster?.members ?? []) : [];
 				const runs = runsRes.status === "fulfilled" ? runsRes.value.runs : [];
 				const tasks = tasksRes.status === "fulfilled" ? tasksRes.value.tasks : [];
 				const specs = specsRes.status === "fulfilled" ? specsRes.value.specs : [];
@@ -95,6 +92,12 @@ export function ProjectDetailRoute() {
 		},
 		[projectId],
 	);
+
+	useEffect(() => {
+		if (projectId) {
+			document.title = `workboard | ${projectId}`;
+		}
+	}, [projectId]);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -289,7 +292,7 @@ export function ProjectDetailRoute() {
 								title="Run History"
 								description="View agent execution logs"
 								icon={<RunsIcon />}
-								href={"/work-items"}
+								href={`/projects/${projectId}/work-items`}
 								accent="orange"
 								stat={`${data.runs.length} runs`}
 							/>
@@ -345,7 +348,7 @@ export function ProjectDetailRoute() {
 						{/* Recent runs */}
 						<ContentPanel
 							title="Recent Runs"
-							href="/work-items"
+							href={`/projects/${projectId}/work-items`}
 							empty={data.runs.length === 0}
 							emptyText="No runs yet. Runs will appear here when agents execute."
 						>
@@ -355,7 +358,7 @@ export function ProjectDetailRoute() {
 								))}
 								{data.runs.length > 4 && (
 									<Link
-										href="/work-items"
+										href={`/projects/${projectId}/work-items`}
 										className="block text-center py-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors"
 									>
 										+{data.runs.length - 4} more runs

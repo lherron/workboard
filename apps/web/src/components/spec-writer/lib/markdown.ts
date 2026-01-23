@@ -1,4 +1,4 @@
-import type { SpecDocument, SpecItem, SpecSection, SpecSectionKind } from "@webwrkq/shared";
+import type { SpecDocument, SpecItem, SpecSection, SpecSectionKind } from "@workboard/shared";
 
 /**
  * Parse diagnostic for markdown parsing issues

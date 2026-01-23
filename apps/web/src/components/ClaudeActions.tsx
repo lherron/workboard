@@ -1,6 +1,6 @@
 import { formatTaskPath } from "@/lib/taskPaths";
 import { cn } from "@/lib/utils";
-import type { TaskDetail } from "@webwrkq/shared";
+import type { TaskDetail } from "@workboard/shared";
 import { useMemo, useState } from "react";
 
 type ClaudeActionButtonProps = {

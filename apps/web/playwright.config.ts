@@ -6,7 +6,7 @@ const webServerEnv = {
 };
 
 // Use external server if PLAYWRIGHT_BASE_URL is set
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5150';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5160';
 const useExternalServer = !!process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
@@ -27,7 +27,7 @@ export default defineConfig({
   ...(!useExternalServer && {
     webServer: {
       command: 'pnpm dev',
-      url: 'http://localhost:5150',
+      url: 'http://localhost:5160',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
       env: webServerEnv,

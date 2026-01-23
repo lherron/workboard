@@ -13,7 +13,7 @@ import {
 import { formatUpdated } from "@/lib/datetime";
 import { formatProjectPath } from "@/lib/taskPaths";
 import { cn } from "@/lib/utils";
-import type { TaskListItem } from "@webwrkq/shared";
+import type { TaskListItem } from "@workboard/shared";
 import { Archive, CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { CreateTaskModal } from "./CreateTaskModal";

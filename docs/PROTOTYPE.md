@@ -8,7 +8,7 @@ A multi-workspace inbox view for quick task capture and triage across all wrkq p
 just start   # Start web dev server (requires control-plane on port 7420)
 ```
 
-Then visit: **http://localhost:5150/?view=inbox-hub**
+Then visit: **http://localhost:5160/?view=inbox-hub**
 
 ## Overview
 

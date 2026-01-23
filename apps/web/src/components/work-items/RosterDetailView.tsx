@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { RosterMemberColumn } from "./RosterMemberColumn";
 
 type RosterDetailViewProps = {
@@ -36,6 +36,8 @@ export type MemberWithRuns = {
 
 export function RosterDetailView({ workItemId }: RosterDetailViewProps) {
 	const [, setLocation] = useLocation();
+	const params = useParams<{ projectId: string }>();
+	const { projectId } = params;
 
 	// Data state
 	const [members, setMembers] = useState<MemberWithRuns[]>([]);
@@ -104,7 +106,7 @@ export function RosterDetailView({ workItemId }: RosterDetailViewProps) {
 
 	// Navigate back to work items
 	const handleBack = () => {
-		setLocation("/work-items");
+		setLocation(`/projects/${projectId}/work-items`);
 	};
 
 	if (loading) {

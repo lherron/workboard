@@ -26,9 +26,9 @@ const mockTask = {
 		path: "inbox/test-task",
 		project: {
 			uuid: "project-uuid",
-			id: "webwrkq",
-			slug: "webwrkq",
-			title: "webwrkq",
+			id: "workboard",
+			slug: "workboard",
+			title: "workboard",
 			path: "inbox",
 		},
 		created_by: { slug: "test-user", role: "human" },
@@ -39,10 +39,10 @@ const mockTask = {
 const mockWorkspaces = {
 	workspaces: [
 		{
-			id: "webwrkq",
-			name: "webwrkq",
-			root: "/Users/test/projects/webwrkq",
-			dbPath: ".wrkq/webwrkq.db",
+			id: "workboard",
+			name: "workboard",
+			root: "/Users/test/projects/workboard",
+			dbPath: ".wrkq/workboard.db",
 			enabled: true,
 		},
 	],
@@ -58,7 +58,7 @@ test.describe("Async triage", () => {
 		let triageRequest: Record<string, unknown> | null = null;
 		const commentRequests: Record<string, unknown>[] = [];
 
-		await page.route("**/admin/tasks/webwrkq/tasks/T-00001", async (route) => {
+		await page.route("**/admin/tasks/workboard/tasks/T-00001", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -66,7 +66,7 @@ test.describe("Async triage", () => {
 			});
 		});
 
-		await page.route("**/admin/tasks/webwrkq/tasks/T-00001/comments", async (route) => {
+		await page.route("**/admin/tasks/workboard/tasks/T-00001/comments", async (route) => {
 			if (route.request().method() === "POST") {
 				const commentRequest = route.request().postDataJSON() as Record<string, unknown>;
 				commentRequests.push(commentRequest);
@@ -102,7 +102,7 @@ test.describe("Async triage", () => {
 			});
 		});
 
-		await page.route("**/admin/tasks/webwrkq/tasks/T-00001/triage_wrkq", async (route) => {
+		await page.route("**/admin/tasks/workboard/tasks/T-00001/triage_wrkq", async (route) => {
 			if (route.request().method() === "POST") {
 				triageRequest = (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>;
 				await route.fulfill({
@@ -124,7 +124,7 @@ test.describe("Async triage", () => {
 			});
 		});
 
-		await page.goto("/prompt-shaping/webwrkq/T-00001");
+		await page.goto("/prompt-shaping/workboard/T-00001");
 		await page.waitForLoadState("networkidle");
 		await page.waitForTimeout(500);
 

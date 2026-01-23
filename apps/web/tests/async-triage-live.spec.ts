@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const projectId = process.env.E2E_PROJECT_ID || "webwrkq";
+const projectId = process.env.E2E_PROJECT_ID || "workboard";
 const taskId = process.env.E2E_TASK_ID;
 const cpToken = process.env.E2E_CP_TOKEN || "dev";
 

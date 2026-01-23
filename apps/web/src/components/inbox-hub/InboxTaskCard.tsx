@@ -1,6 +1,6 @@
 import { RunStatusBadge } from "@/components/RunStatusBadge";
 import { cn } from "@/lib/utils";
-import type { ProjectTaskListItem, TaskListItem, TaskRunStatus } from "@webwrkq/shared";
+import type { ProjectTaskListItem, TaskListItem, TaskRunStatus } from "@workboard/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CardSize } from "./types";
 

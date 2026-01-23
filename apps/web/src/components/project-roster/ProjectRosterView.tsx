@@ -74,8 +74,8 @@ export function ProjectRosterView({ projectId, initialRoleName }: ProjectRosterV
 					throw err;
 				}
 
-				// Use view.members if roster is null (roster not yet created)
-				const rosterMembers = rosterResponse.roster?.members ?? rosterResponse.view?.members ?? [];
+				// Use empty array if roster is null (roster not yet created)
+				const rosterMembers = rosterResponse.roster?.members ?? [];
 
 				// Fetch runs for the project
 				let runs: RunSummary[] = [];

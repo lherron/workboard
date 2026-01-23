@@ -1,5 +1,10 @@
 import type { ApiClientError } from "@/api/client";
-import type { ContainerNode, ProjectTaskListItem, TaskListItem, TaskState } from "@webwrkq/shared";
+import type {
+	ContainerNode,
+	ProjectTaskListItem,
+	TaskListItem,
+	TaskState,
+} from "@workboard/shared";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

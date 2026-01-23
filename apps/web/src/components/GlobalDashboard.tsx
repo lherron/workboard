@@ -8,7 +8,10 @@ import { useAppNavigation } from "@/hooks/useNavigation";
 import { formatUpdated } from "@/lib/datetime";
 import { formatProjectPath } from "@/lib/taskPaths";
 import { cn } from "@/lib/utils";
-import type { CrossProjectContainersTreeResponse, CrossProjectTaskListItem } from "@webwrkq/shared";
+import type {
+	CrossProjectContainersTreeResponse,
+	CrossProjectTaskListItem,
+} from "@workboard/shared";
 import {
 	AlertTriangle,
 	Archive,

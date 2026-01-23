@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Skeleton } from "@/components/Skeleton";
 import { cn } from "@/lib/utils";
-import type { ContainerNode, CrossProjectContainersTreeResponse } from "@webwrkq/shared";
+import type { ContainerNode, CrossProjectContainersTreeResponse } from "@workboard/shared";
 import { useState } from "react";
 
 /**
@@ -385,7 +385,7 @@ export function Sidebar({
 					</span>
 				</a>
 				<a
-					href="/work-items"
+					href="/projects"
 					className={cn(
 						"flex items-center gap-2 px-2 py-1.5 rounded-sm text-[11px] transition-colors",
 						"text-muted-foreground/70 hover:text-foreground hover:bg-muted/30",
@@ -393,7 +393,7 @@ export function Sidebar({
 					)}
 				>
 					<svg
-						className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-amber-400 transition-colors"
+						className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-cyan-400 transition-colors"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -401,12 +401,17 @@ export function Sidebar({
 						strokeLinecap="round"
 						strokeLinejoin="round"
 					>
-						<circle cx="12" cy="12" r="10" />
-						<polyline points="12 6 12 12 16 14" />
+						<circle cx="5" cy="5" r="2" />
+						<circle cx="19" cy="5" r="2" />
+						<circle cx="12" cy="12" r="2.5" />
+						<circle cx="5" cy="19" r="2" />
+						<circle cx="19" cy="19" r="2" />
+						<path d="M7 5h10M5 7v10M19 7v10M7 19h10" strokeOpacity="0.4" />
+						<path d="M6.5 6.5l4 4M13.5 13.5l4 4M17.5 6.5l-4 4M10.5 13.5l-4 4" strokeOpacity="0.4" />
 					</svg>
-					<span>Work Items</span>
+					<span>Projects</span>
 					<span className="ml-auto text-[9px] text-muted-foreground/40 group-hover:text-muted-foreground/60">
-						⌘W
+						⌘P
 					</span>
 				</a>
 			</div>

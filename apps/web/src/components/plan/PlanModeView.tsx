@@ -6,7 +6,10 @@ import {
 	updateTask,
 } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { CrossProjectContainersTreeResponse, CrossProjectTaskListItem } from "@webwrkq/shared";
+import type {
+	CrossProjectContainersTreeResponse,
+	CrossProjectTaskListItem,
+} from "@workboard/shared";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KanbanBoard } from "./KanbanBoard";

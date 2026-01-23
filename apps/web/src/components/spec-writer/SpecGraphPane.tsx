@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { SpecDocument } from "@webwrkq/shared";
+import type { SpecDocument } from "@workboard/shared";
 import ReactFlow, { Background, Handle, type NodeProps, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import {

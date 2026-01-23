@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { TaskRunStatus } from "@webwrkq/shared";
+import type { TaskRunStatus } from "@workboard/shared";
 
 type RunStatusBadgeProps = {
 	status: TaskRunStatus | null | undefined;

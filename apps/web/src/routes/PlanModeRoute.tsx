@@ -1,7 +1,7 @@
 import { type ApiClientError, fetchWorkspaceContainersTree } from "@/api/client";
 import { ModeToggle, PlanModeView } from "@/components/plan";
 import { useAppNavigation } from "@/hooks/useNavigation";
-import type { CrossProjectContainersTreeResponse } from "@webwrkq/shared";
+import type { CrossProjectContainersTreeResponse } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 
 type WorkspaceTree = CrossProjectContainersTreeResponse["projects"][number];
@@ -59,7 +59,9 @@ export function PlanModeRoute() {
 					<div className="w-6 h-6 border border-primary/50 flex items-center justify-center bg-primary/10">
 						<span className="text-primary text-[10px] font-bold font-mono">wq</span>
 					</div>
-					<span className="text-[12px] font-mono text-foreground/60 hidden sm:inline">webwrkq</span>
+					<span className="text-[12px] font-mono text-foreground/60 hidden sm:inline">
+						workboard
+					</span>
 				</div>
 				<ModeToggle mode="plan" onChange={handleModeChange} />
 			</header>

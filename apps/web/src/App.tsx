@@ -20,8 +20,8 @@ import type {
 	TaskComment,
 	TaskDetail,
 	TaskListItem,
-} from "@webwrkq/shared";
-import type { TaskState } from "@webwrkq/shared";
+} from "@workboard/shared";
+import type { TaskState } from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type WorkspaceTree = CrossProjectContainersTreeResponse["projects"][number];
@@ -422,7 +422,7 @@ function App() {
 							<span className="text-primary text-[10px] font-bold font-mono">wq</span>
 						</div>
 						<span className="text-[12px] font-mono text-foreground/60 hidden sm:inline">
-							webwrkq
+							workboard
 						</span>
 					</div>
 					<ModeToggle mode={currentMode} onChange={handleModeChange} />
@@ -445,7 +445,7 @@ function App() {
 					<div className="w-6 h-6 border border-primary/50 flex items-center justify-center bg-primary/10">
 						<span className="text-primary text-[10px] font-bold font-mono">wq</span>
 					</div>
-					<span className="text-[12px] font-mono text-foreground/60">webwrkq</span>
+					<span className="text-[12px] font-mono text-foreground/60">workboard</span>
 				</div>
 				<ModeToggle mode={currentMode} onChange={handleModeChange} />
 			</header>
@@ -458,7 +458,7 @@ function App() {
 							<div className="w-5 h-5 border border-primary/50 flex items-center justify-center bg-primary/10">
 								<span className="text-primary text-[9px] font-bold font-mono">wq</span>
 							</div>
-							<span className="text-[11px] font-mono text-foreground/50">webwrkq</span>
+							<span className="text-[11px] font-mono text-foreground/50">workboard</span>
 						</div>
 						<ModeToggle mode={currentMode} onChange={handleModeChange} />
 					</div>

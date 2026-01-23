@@ -61,6 +61,115 @@ function getEventProp<T>(event: RexSessionEvent, key: string): T | undefined {
 	return (event as Record<string, unknown>)[key] as T | undefined;
 }
 
+// Image media ref type
+type ImageMediaRef = {
+	url: string;
+	mimeType?: string;
+	filename?: string;
+	alt?: string;
+};
+
+// Check if a MIME type is an image
+function isImageMimeType(mimeType?: string): boolean {
+	if (!mimeType) return false;
+	return mimeType.startsWith("image/");
+}
+
+// Check if a filename is an image based on extension
+function isImageFilename(filename?: string): boolean {
+	if (!filename) return false;
+	const ext = filename.toLowerCase().split(".").pop();
+	return ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"].includes(ext ?? "");
+}
+
+// Extract image media refs from content blocks
+function extractImageMediaRefs(content: unknown): ImageMediaRef[] {
+	if (!content || !Array.isArray(content)) return [];
+	return content
+		.filter(
+			(
+				block,
+			): block is {
+				type: "media_ref";
+				url: string;
+				mimeType?: string;
+				filename?: string;
+				alt?: string;
+			} => {
+				if (typeof block !== "object" || block === null) return false;
+				const b = block as Record<string, unknown>;
+				if (b.type !== "media_ref" || typeof b.url !== "string") return false;
+				// Check if it's an image by MIME type or filename
+				return (
+					isImageMimeType(b.mimeType as string | undefined) ||
+					isImageFilename(b.filename as string | undefined)
+				);
+			},
+		)
+		.map((block) => ({
+			url: block.url,
+			mimeType: block.mimeType,
+			filename: block.filename,
+			alt: block.alt,
+		}));
+}
+
+// Image modal for viewing full-size images
+function ImageModal({
+	src,
+	alt,
+	onClose,
+}: {
+	src: string;
+	alt: string;
+	onClose: () => void;
+}) {
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+			onClick={onClose}
+		>
+			<div className="relative max-w-[90vw] max-h-[90vh]">
+				<button
+					onClick={onClose}
+					className="absolute -top-8 right-0 text-white/70 hover:text-white text-sm"
+				>
+					✕ Close
+				</button>
+				<img
+					src={src}
+					alt={alt}
+					className="max-w-full max-h-[85vh] object-contain rounded border border-amber-500/30"
+					onClick={(e) => e.stopPropagation()}
+				/>
+				<p className="mt-2 text-center text-xs text-white/50 font-mono truncate">{alt}</p>
+			</div>
+		</div>
+	);
+}
+
+// Clickable thumbnail that opens modal
+function ImageThumbnail({ src, alt }: { src: string; alt: string }) {
+	const [showModal, setShowModal] = useState(false);
+
+	return (
+		<>
+			<img
+				src={src}
+				alt={alt}
+				className="max-w-full max-h-64 rounded border border-amber-500/30 object-contain cursor-pointer hover:border-amber-400/50 transition-colors"
+				loading="lazy"
+				onClick={(e) => {
+					e.stopPropagation();
+					setShowModal(true);
+				}}
+				title="Click to enlarge"
+			/>
+			{showModal && <ImageModal src={src} alt={alt} onClose={() => setShowModal(false)} />}
+		</>
+	);
+}
+
 // Extract content blocks from various event message formats
 function extractTextContent(content: unknown): string | undefined {
 	if (!content) return undefined;
@@ -356,6 +465,9 @@ function ToolBlock({
 		if (text) resultSummary = truncate(text, 100);
 	}
 
+	// Extract image media refs from result (for Read tool with images)
+	const imageRefs = result?.content ? extractImageMediaRefs(result.content) : [];
+
 	return (
 		<div
 			className={cn(
@@ -382,6 +494,22 @@ function ToolBlock({
 
 			{message && <p className="mt-1 text-[9px] text-muted-foreground/60">{message}</p>}
 
+			{/* Render inline images for Read tool results */}
+			{imageRefs.length > 0 && (
+				<div className="mt-2 space-y-2">
+					{imageRefs.map((img, idx) => (
+						<div key={idx} className="relative">
+							<ImageThumbnail src={img.url} alt={img.alt ?? img.filename ?? "Image"} />
+							{img.filename && (
+								<p className="mt-0.5 text-[8px] font-mono text-muted-foreground/40">
+									{img.filename}
+								</p>
+							)}
+						</div>
+					))}
+				</div>
+			)}
+
 			{expanded && resultSummary && (
 				<div className="mt-2 pt-2 border-t border-amber-500/20">
 					<p className="text-[9px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap">
@@ -390,7 +518,7 @@ function ToolBlock({
 				</div>
 			)}
 
-			{status === "success" && !expanded && resultSummary && (
+			{status === "success" && !expanded && resultSummary && !imageRefs.length && (
 				<p className="mt-1 text-[8px] text-muted-foreground/40">Click to expand result</p>
 			)}
 		</div>

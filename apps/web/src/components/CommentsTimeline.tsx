@@ -5,7 +5,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { Skeleton } from "@/components/Skeleton";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-import type { TaskComment } from "@webwrkq/shared";
+import type { TaskComment } from "@workboard/shared";
 import { Bot, MessageSquareText, ShieldQuestion, UserRound } from "lucide-react";
 
 type CommentsTimelineProps = {

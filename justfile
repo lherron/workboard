@@ -1,4 +1,4 @@
-# taskboard Development Justfile
+# workboard Development Justfile
 
 set dotenv-load := true
 set dotenv-filename := ".env.local"
@@ -10,7 +10,7 @@ default:
 
 # Project information
 info:
-    @echo "Current Project: taskboard (taskboard)"
+    @echo "Current Project: workboard"
     @echo "Description: Web UI for wrkq task management"
     @echo "Stack:       TypeScript/Bun monorepo (API + Vite frontend)"
     @echo ""
@@ -21,14 +21,14 @@ info:
     @echo "  just verify    - Run lint + test"
 
 # Session prefix for tmux (set by stackctl via TOOL_STACK env var)
-# Standalone: taskboard-api, taskboard-web
-# With stackctl: stack-dev-taskboard-api, stack-stable-taskboard-api, etc.
+# Standalone: workboard-api, workboard-web
+# With stackctl: stack-dev-workboard-api, stack-stable-workboard-api, etc.
 stack := env_var_or_default("TOOL_STACK", "")
 session_prefix := if stack == "" { "" } else { "stack-" + stack + "-" }
 
 # Ports (override via .env.local or environment)
-api_port := env_var_or_default("API_PORT", "18451")
-web_port := env_var_or_default("WEBWRKQ_WEB_PORT", "18450")
+api_port := env_var_or_default("API_PORT", "18461")
+web_port := env_var_or_default("WORKBOARD_WEB_PORT", "18460")
 
 # Log directory (from CP env or default)
 log_dir := env_var_or_default("CP_LOG_DIR", "~/.control-plane/dev/logs")
@@ -76,7 +76,7 @@ ensure-logs:
 [group('infra')]
 start-api: ensure-logs
     #!/usr/bin/env bash
-    session="{{session_prefix}}taskboard-api"
+    session="{{session_prefix}}workboard-api"
     log_dir="{{log_dir}}"
     log_dir="${log_dir/#\~/$HOME}"
     if tmux has-session -t "$session" 2>/dev/null; then
@@ -89,14 +89,14 @@ start-api: ensure-logs
     fi
     mkdir -p "$log_dir"
     tmux new-session -d -s "$session" \
-        "bun run --filter '@webwrkq/api' dev 2>&1 | tee -a $log_dir/taskboard-api.log"
-    echo "Started $session on http://localhost:{{api_port}} (logging to $log_dir/taskboard-api.log)"
+        "bun run --filter '@workboard/api' dev 2>&1 | tee -a $log_dir/workboard-api.log"
+    echo "Started $session on http://localhost:{{api_port}} (logging to $log_dir/workboard-api.log)"
 
 # Start Web UI in tmux session
 [group('infra')]
 start-web: ensure-logs
     #!/usr/bin/env bash
-    session="{{session_prefix}}taskboard-web"
+    session="{{session_prefix}}workboard-web"
     log_dir="{{log_dir}}"
     log_dir="${log_dir/#\~/$HOME}"
     if tmux has-session -t "$session" 2>/dev/null; then
@@ -109,19 +109,19 @@ start-web: ensure-logs
     fi
     mkdir -p "$log_dir"
     tmux new-session -d -s "$session" \
-        "bun run --filter '@webwrkq/web' dev -- --host 0.0.0.0 --port {{web_port}} --strictPort 2>&1 | tee -a $log_dir/taskboard-web.log"
-    echo "Started $session on http://localhost:{{web_port}} (logging to $log_dir/taskboard-web.log)"
+        "bun run --filter '@workboard/web' dev -- --host 0.0.0.0 --port {{web_port}} --strictPort 2>&1 | tee -a $log_dir/workboard-web.log"
+    echo "Started $session on http://localhost:{{web_port}} (logging to $log_dir/workboard-web.log)"
 
 # Start all services
 [group('infra')]
 up: start-api start-web
-    @echo "taskboard infrastructure up"
+    @echo "workboard infrastructure up"
 
 # Stop API server
 [group('infra')]
 stop-api:
     #!/usr/bin/env bash
-    session="{{session_prefix}}taskboard-api"
+    session="{{session_prefix}}workboard-api"
     if tmux has-session -t "$session" 2>/dev/null; then
         tmux kill-session -t "$session"
         echo "Stopped $session"
@@ -133,7 +133,7 @@ stop-api:
 [group('infra')]
 stop-web:
     #!/usr/bin/env bash
-    session="{{session_prefix}}taskboard-web"
+    session="{{session_prefix}}workboard-web"
     if tmux has-session -t "$session" 2>/dev/null; then
         tmux kill-session -t "$session"
         echo "Stopped $session"
@@ -144,7 +144,7 @@ stop-web:
 # Stop all services
 [group('infra')]
 down: stop-web stop-api
-    @echo "taskboard infrastructure down"
+    @echo "workboard infrastructure down"
 
 # Restart all services
 [group('infra')]
@@ -157,9 +157,9 @@ status:
     echo "=== tmux sessions ==="
     prefix="{{session_prefix}}"
     if [ -n "$prefix" ]; then
-        tmux list-sessions 2>/dev/null | grep -E "^${prefix}taskboard-" || echo "No ${prefix}taskboard sessions"
+        tmux list-sessions 2>/dev/null | grep -E "^${prefix}workboard-" || echo "No ${prefix}workboard sessions"
     else
-        tmux list-sessions 2>/dev/null | grep -E '^taskboard-' || echo "No taskboard sessions"
+        tmux list-sessions 2>/dev/null | grep -E '^workboard-' || echo "No workboard sessions"
     fi
     echo ""
     echo "=== API health ==="
@@ -177,7 +177,7 @@ start-mock:
     @echo "Starting mock API and web dev server..."
     @bun scripts/mock-api.ts &
     @sleep 1
-    @bun run --filter '@webwrkq/web' dev
+    @bun run --filter '@workboard/web' dev
 
 # Take prototype screenshots
 screenshot:

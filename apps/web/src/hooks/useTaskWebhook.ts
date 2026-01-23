@@ -1,4 +1,4 @@
-import type { TaskListItem } from "@webwrkq/shared";
+import type { TaskListItem } from "@workboard/shared";
 /**
  * useTaskWebhook - Shared hook for real-time task updates via SSE
  *

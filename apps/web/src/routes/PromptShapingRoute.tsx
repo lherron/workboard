@@ -12,7 +12,7 @@ import { TerminalButtons } from "@/components/TerminalButtons";
 import { useAppNavigation } from "@/hooks/useNavigation";
 import { formatDateTime, formatDateTimeFull } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-import type { TaskComment, TaskDetail, UpdateTaskRequest } from "@webwrkq/shared";
+import type { TaskComment, TaskDetail, UpdateTaskRequest } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearch } from "wouter";
 

@@ -15,8 +15,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@webwrkq/shared": ["packages/shared/src"],
-      "@webwrkq/shared/*": ["packages/shared/src/*"]
+      "@workboard/shared": ["packages/shared/src"],
+      "@workboard/shared/*": ["packages/shared/src/*"]
     }
   }
 }

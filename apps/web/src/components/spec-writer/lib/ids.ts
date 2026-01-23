@@ -1,4 +1,4 @@
-import { SECTION_ID_PREFIX, type SpecDocument, type SpecSectionKind } from "@webwrkq/shared";
+import { SECTION_ID_PREFIX, type SpecDocument, type SpecSectionKind } from "@workboard/shared";
 
 /**
  * Generate a new item ID for a section.

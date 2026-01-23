@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { CrossProjectContainersTreeResponse } from "@webwrkq/shared";
+import type { CrossProjectContainersTreeResponse } from "@workboard/shared";
 import {
 	CheckSquare,
 	ChevronDown,

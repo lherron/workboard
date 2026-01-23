@@ -11,7 +11,7 @@ const page = await context.newPage();
 
 // Navigate to inbox hub
 console.log("Navigating to inbox hub...");
-await page.goto("http://localhost:5150/?view=inbox-hub");
+await page.goto("http://localhost:5160/?view=inbox-hub");
 await page.waitForTimeout(3000);
 
 // Screenshot 1: Main kanban view

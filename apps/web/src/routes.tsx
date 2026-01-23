@@ -1,8 +1,6 @@
 import { ConciergePanel, ConciergeToggle, useConcierge } from "@/components/concierge";
 import { ActorsRoute } from "@/routes/ActorsRoute";
 import { ContainerViewRoute } from "@/routes/ContainerViewRoute";
-import { GlobalDashboardRoute } from "@/routes/GlobalDashboardRoute";
-import { InboxHubRoute } from "@/routes/InboxHubRoute";
 import { PlanModeRoute } from "@/routes/PlanModeRoute";
 import { ProjectDetailRoute } from "@/routes/ProjectDetailRoute";
 import { ProjectRosterRoute } from "@/routes/ProjectRosterRoute";
@@ -12,18 +10,16 @@ import { SpecWriterRoute } from "@/routes/SpecWriterRoute";
 import { WorkItemRosterRoute } from "@/routes/WorkItemRosterRoute";
 import { WorkItemsRoute } from "@/routes/WorkItemsRoute";
 import { WorkspaceRoute } from "@/routes/WorkspaceRoute";
-import { Route, Switch } from "wouter";
+import { Redirect, Route, Switch } from "wouter";
 
 /**
  * Route structure:
  *
- * /                                              → GlobalDashboard
- * /inbox-hub                                     → InboxHub
- * /inbox-hub/:workspaceId/:taskId                → InboxHub with task modal open
- * /work-items                                    → WorkItemsView (run status dashboard)
- * /work-items/:workItemId/roster                 → RosterDetailView (agent roster + run history)
+ * /                                              → Redirect to /projects
  * /projects                                      → ProjectsIndex (all projects with rosters)
  * /projects/:projectId                           → ProjectDetail (project hub: roster, tasks, specs, runs)
+ * /projects/:projectId/work-items                → WorkItemsView (run status dashboard, project-scoped)
+ * /projects/:projectId/work-items/:workItemId/roster → RosterDetailView (agent roster + run history)
  * /projects/:projectId/roster                    → ProjectRosterView (project-level agent roster)
  * /projects/:projectId/roster/:roleName          → ProjectRosterView with role selected
  * /plan                                          → PlanModeView
@@ -65,10 +61,11 @@ export function AppRoutes() {
 						component={ContainerViewRoute}
 					/>
 					<Route path="/container/:workspaceId/:containerId" component={ContainerViewRoute} />
-					<Route path="/inbox-hub/:workspaceId/:taskId" component={InboxHubRoute} />
-					<Route path="/inbox-hub" component={InboxHubRoute} />
-					<Route path="/work-items/:workItemId/roster" component={WorkItemRosterRoute} />
-					<Route path="/work-items" component={WorkItemsRoute} />
+					<Route
+						path="/projects/:projectId/work-items/:workItemId/roster"
+						component={WorkItemRosterRoute}
+					/>
+					<Route path="/projects/:projectId/work-items" component={WorkItemsRoute} />
 					<Route path="/projects/:projectId/roster/:roleName" component={ProjectRosterRoute} />
 					<Route path="/projects/:projectId/roster" component={ProjectRosterRoute} />
 					<Route path="/projects/:projectId" component={ProjectDetailRoute} />
@@ -82,7 +79,9 @@ export function AppRoutes() {
 					<Route path="/workspace/:workspaceId/:containerId/:taskId" component={WorkspaceRoute} />
 					<Route path="/workspace/:workspaceId/:containerId" component={WorkspaceRoute} />
 					<Route path="/workspace/:workspaceId" component={WorkspaceRoute} />
-					<Route path="/" component={GlobalDashboardRoute} />
+					<Route path="/">
+						<Redirect to="/projects" />
+					</Route>
 				</Switch>
 			</div>
 		</>

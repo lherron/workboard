@@ -1,5 +1,5 @@
 import type { ApiClientError } from "@/api/client";
-import type { SpecManifest } from "@webwrkq/shared";
+import type { SpecManifest } from "@workboard/shared";
 import { Copy, FileText, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 

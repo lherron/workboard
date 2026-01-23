@@ -1,7 +1,7 @@
 import { launchTerminal, startAsyncTriage, startGeminiTriage } from "@/api/client";
 import { buildTerminalLaunchRequest, getSessionLaunch } from "@/lib/sessionLaunches";
 import { cn } from "@/lib/utils";
-import type { TaskDetail } from "@webwrkq/shared";
+import type { TaskDetail } from "@workboard/shared";
 import {
 	type Ref,
 	forwardRef,

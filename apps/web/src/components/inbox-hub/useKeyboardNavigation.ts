@@ -1,6 +1,6 @@
 import { createContainer, startAsyncTriage } from "@/api/client";
 import { getSessionLaunch, getShortcutForScope, matchesShortcut } from "@/lib/sessionLaunches";
-import type { ProjectTaskListItem, TaskListItem } from "@webwrkq/shared";
+import type { ProjectTaskListItem, TaskListItem } from "@workboard/shared";
 import { useCallback, useEffect, useRef } from "react";
 import { groupTasksByContainer } from "./InboxColumn";
 import { saveCardSize, saveSort } from "./preferences";

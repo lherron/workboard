@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
-import type { SpecDocument } from "@webwrkq/shared";
+import type { SpecDocument } from "@workboard/shared";
 import { basicSetup } from "codemirror";
 import { AlertTriangle, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

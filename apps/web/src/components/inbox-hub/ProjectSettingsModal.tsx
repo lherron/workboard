@@ -1,6 +1,6 @@
 import { fetchWorkspaces } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { Workspace } from "@webwrkq/shared";
+import type { Workspace } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 
 type ProjectSettingsModalProps = {

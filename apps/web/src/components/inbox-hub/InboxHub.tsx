@@ -20,7 +20,7 @@ import type {
 	ProjectTaskListItem,
 	TaskDetail,
 	TaskListItem,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiltersetManagementModal } from "./FiltersetManagementModal";
 import { InboxColumn, type TaskCreateResult, groupTasksByContainer } from "./InboxColumn";

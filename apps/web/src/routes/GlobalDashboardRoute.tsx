@@ -3,7 +3,7 @@ import { GlobalDashboard } from "@/components/GlobalDashboard";
 import { Sidebar } from "@/components/Sidebar";
 import { ModeToggle } from "@/components/plan";
 import { useAppNavigation, useFilterParams } from "@/hooks/useNavigation";
-import type { CrossProjectContainersTreeResponse } from "@webwrkq/shared";
+import type { CrossProjectContainersTreeResponse } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 
 type WorkspaceTree = CrossProjectContainersTreeResponse["projects"][number];
@@ -94,7 +94,7 @@ export function GlobalDashboardRoute() {
 					<div className="w-6 h-6 border border-primary/50 flex items-center justify-center bg-primary/10">
 						<span className="text-primary text-[10px] font-bold font-mono">wq</span>
 					</div>
-					<span className="text-[12px] font-mono text-foreground/60">webwrkq</span>
+					<span className="text-[12px] font-mono text-foreground/60">workboard</span>
 				</div>
 				<ModeToggle mode="execute" onChange={handleModeChange} />
 			</header>
@@ -107,7 +107,7 @@ export function GlobalDashboardRoute() {
 							<div className="w-5 h-5 border border-primary/50 flex items-center justify-center bg-primary/10">
 								<span className="text-primary text-[9px] font-bold font-mono">wq</span>
 							</div>
-							<span className="text-[11px] font-mono text-foreground/50">webwrkq</span>
+							<span className="text-[11px] font-mono text-foreground/50">workboard</span>
 						</div>
 						<ModeToggle mode="execute" onChange={handleModeChange} />
 					</div>

@@ -3,7 +3,7 @@ import {
 	type SpecDocument,
 	type SpecMutation,
 	type SpecSectionKind,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { generateItemId, getNextItemOrder } from "./ids";
 
 /**

@@ -1,6 +1,6 @@
 import { type ApiClientError, fetchActors } from "@/api/client";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import type { WrkqActor } from "@webwrkq/shared";
+import type { WrkqActor } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { CreateActorModal } from "./CreateActorModal";
 import { EditActorModal } from "./EditActorModal";

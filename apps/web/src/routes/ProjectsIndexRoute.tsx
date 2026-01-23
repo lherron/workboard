@@ -1,6 +1,6 @@
 import { type ProjectRosterMember, fetchProjectRoster, fetchWorkspaces } from "@/api/client";
 import { cn } from "@/lib/utils";
-import type { Workspace, WorkspaceListResponse } from "@webwrkq/shared";
+import type { Workspace, WorkspaceListResponse } from "@workboard/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
 
@@ -52,7 +52,7 @@ export function ProjectsIndexRoute() {
 			const rosterPromises = response.workspaces.map(async (w: Workspace) => {
 				try {
 					const rosterResponse = await fetchProjectRoster(w.id, signal);
-					const members = rosterResponse.roster?.members ?? rosterResponse.view?.members ?? [];
+					const members = rosterResponse.roster?.members ?? [];
 					return { id: w.id, members, error: null };
 				} catch (err) {
 					if ((err as { status?: number }).status === 404) {
@@ -80,6 +80,10 @@ export function ProjectsIndexRoute() {
 			setError((err as Error).message || "Failed to load projects");
 			setLoading(false);
 		}
+	}, []);
+
+	useEffect(() => {
+		document.title = "workboard | projects";
 	}, []);
 
 	useEffect(() => {

@@ -8,7 +8,7 @@ import type {
 	ContainerNode,
 	ProjectTaskListItem,
 	TaskListItem,
-} from "@webwrkq/shared";
+} from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { InboxTaskCard } from "./InboxTaskCard";
 import { ProjectSettingsModal } from "./ProjectSettingsModal";
@@ -1324,7 +1324,7 @@ export function InboxColumn({
 															}
 															draggable={!isReadOnly}
 															runStatus={
-																runStatus as import("@webwrkq/shared").TaskRunStatus | null
+																runStatus as import("@workboard/shared").TaskRunStatus | null
 															}
 															isSelected={selectedTaskId === task.id}
 															isCompleting={isCompleting}

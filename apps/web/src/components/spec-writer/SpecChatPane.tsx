@@ -1,6 +1,6 @@
 import { formatTimestampShort } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-import type { SpecDocument } from "@webwrkq/shared";
+import type { SpecDocument } from "@workboard/shared";
 import {
 	AlertTriangle,
 	CheckCircle,

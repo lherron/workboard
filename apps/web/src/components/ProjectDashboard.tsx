@@ -2,7 +2,7 @@ import { type ApiClientError, archiveTask, fetchWorkspaceTasks, updateTask } fro
 import { formatUpdated } from "@/lib/datetime";
 import { formatProjectPath } from "@/lib/taskPaths";
 import { cn } from "@/lib/utils";
-import type { ContainerNode, ProjectTaskListItem } from "@webwrkq/shared";
+import type { ContainerNode, ProjectTaskListItem } from "@workboard/shared";
 import { Archive, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 

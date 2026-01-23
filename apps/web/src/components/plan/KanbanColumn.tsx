@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { CrossProjectTaskListItem } from "@webwrkq/shared";
+import type { CrossProjectTaskListItem } from "@workboard/shared";
 import { KanbanCard } from "./KanbanCard";
 
 type KanbanColumnProps = {

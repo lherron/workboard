@@ -2,7 +2,7 @@
  * WRKQ Protocol Schemas
  *
  * Zod schemas for WRKQ task management API endpoints.
- * Migrated from webwrkq/packages/shared to support control-plane integration.
+ * Originally migrated from webwrkq/packages/shared to support control-plane integration.
  */
 import { z } from "zod";
 

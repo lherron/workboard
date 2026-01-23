@@ -1,4 +1,4 @@
-import type { SpecDocument } from "@webwrkq/shared";
+import type { SpecDocument } from "@workboard/shared";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
 	type Edge,

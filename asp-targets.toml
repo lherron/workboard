@@ -41,5 +41,5 @@ description = "Testing role"
 compose = ["space:default-tester@dev", "space:defaults@stable"]
 
 [targets.ui-concierge]
-description = "UI Concierge for taskboard"
-compose = ["space:ui-concierge@dev", "space:cpdefaults@dev", "space:defaults@stable"]
+description = "UI Concierge for workboard"
+compose = ["space:ui-concierge@dev", "space:defaults@stable"]

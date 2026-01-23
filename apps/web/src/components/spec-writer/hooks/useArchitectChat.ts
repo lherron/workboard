@@ -1,6 +1,7 @@
 import { startDetachedRun, updateWorkspaceSpec } from "@/api/client";
 import { type SessionStreamEntry, useCpSessionStream } from "@/hooks/useCpSessionStream";
 import { debugLog } from "@/lib/utils";
+import { buildStreamingAssistantText, buildTranscript } from "@/session-events";
 import {
 	type SpecDocument,
 	type SpecMutation,
@@ -81,96 +82,40 @@ function extractMutations(content: string): SpecMutationsBlock | null {
 
 /**
  * Build chat messages from session stream entries.
+ * This delegates all event parsing to the shared session-events pipeline.
  */
 function buildMessagesFromEntries(entries: SessionStreamEntry[]): ChatMessage[] {
-	const messages: ChatMessage[] = [];
-	const messageMap = new Map<string, ChatMessage>();
-	const runMessages = new Map<string, { role: "user" | "assistant"; parts: string[] }>();
+	const transcript = buildTranscript(entries, {
+		includeUserPrompts: true,
+		includeToolCalls: false,
+		includeAssistantMessages: true,
+		includeMessageRoles: ["assistant"],
+	});
 
-	for (const entry of entries) {
-		const event = entry.event;
-		const runId = entry.runId;
+	return transcript
+		.filter((item) => item.kind === "user" || item.kind === "assistant")
+		.map((item) => {
+			if (item.kind === "user") {
+				return {
+					id: item.id,
+					role: "user" as const,
+					content: item.content,
+					timestamp: item.occurredAt,
+					runId: item.runId,
+				};
+			}
 
-		if (event.type === "run_queued") {
-			// User message from run input
-			const typedEvent = event as {
-				type: "run_queued";
-				input: { content: string };
-				queuedAt: number;
+			const mutations = extractMutations(item.content);
+			return {
+				id: item.id,
+				role: "assistant" as const,
+				content: item.content,
+				timestamp: item.occurredAt,
+				runId: item.runId,
+				mutations: mutations?.mutations,
 			};
-			const msg: ChatMessage = {
-				id: `user-${runId}-${entry.seq}`,
-				role: "user",
-				content: typedEvent.input.content,
-				timestamp: typedEvent.queuedAt,
-				runId,
-			};
-			messages.push(msg);
-			messageMap.set(msg.id, msg);
-		} else if (event.type === "message_start") {
-			const typedEvent = event as {
-				type: "message_start";
-				message: { role: string; content: unknown };
-			};
-			if (typedEvent.message.role === "assistant") {
-				if (runId && !runMessages.has(runId)) {
-					runMessages.set(runId, { role: "assistant", parts: [] });
-				}
-				// Handle initial content
-				const initialContent = typedEvent.message.content;
-				if (typeof initialContent === "string" && initialContent && runId) {
-					const runMsg = runMessages.get(runId);
-					if (runMsg) runMsg.parts.push(initialContent);
-				} else if (Array.isArray(initialContent)) {
-					for (const block of initialContent) {
-						if (
-							typeof block === "object" &&
-							block !== null &&
-							"type" in block &&
-							block.type === "text" &&
-							"text" in block
-						) {
-							const textBlock = block as { type: "text"; text: string };
-							if (runId) {
-								const runMsg = runMessages.get(runId);
-								if (runMsg) runMsg.parts.push(textBlock.text);
-							}
-						}
-					}
-				}
-			}
-		} else if (event.type === "message_update") {
-			const typedEvent = event as { type: "message_update"; textDelta?: string };
-			if (typedEvent.textDelta && runId) {
-				const runMsg = runMessages.get(runId);
-				if (runMsg) {
-					runMsg.parts.push(typedEvent.textDelta);
-				}
-			}
-		} else if (event.type === "message_end" || event.type === "run_completed") {
-			if (runId) {
-				const runMsg = runMessages.get(runId);
-				if (runMsg && runMsg.parts.length > 0) {
-					const content = runMsg.parts.join("");
-					const mutations = extractMutations(content);
-					const msg: ChatMessage = {
-						id: `assistant-${runId}-${entry.seq}`,
-						role: "assistant",
-						content,
-						timestamp: entry.timestamp,
-						runId,
-						mutations: mutations?.mutations,
-					};
-					messages.push(msg);
-					messageMap.set(msg.id, msg);
-					runMessages.delete(runId);
-				}
-			}
-		}
-	}
-
-	// Sort by timestamp
-	return messages.sort((a, b) => a.timestamp - b.timestamp);
+		})
+		.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**
@@ -245,42 +190,10 @@ export function useArchitectChat({
 			return;
 		}
 
-		// Build current stream text from latest run
+		// Build current stream text from latest run using the shared pipeline.
 		const lastEntry = entries[entries.length - 1];
 		if (!lastEntry?.runId) return;
-
-		const runEntries = entries.filter((e) => e.runId === lastEntry.runId);
-		const parts: string[] = [];
-
-		for (const entry of runEntries) {
-			const event = entry.event;
-			if (event.type === "message_start") {
-				const typedEvent = event as { type: "message_start"; message: { content: unknown } };
-				const content = typedEvent.message.content;
-				if (typeof content === "string") {
-					parts.push(content);
-				} else if (Array.isArray(content)) {
-					for (const block of content) {
-						if (
-							typeof block === "object" &&
-							block !== null &&
-							"type" in block &&
-							block.type === "text" &&
-							"text" in block
-						) {
-							parts.push((block as { text: string }).text);
-						}
-					}
-				}
-			} else if (event.type === "message_update") {
-				const typedEvent = event as { type: "message_update"; textDelta?: string };
-				if (typedEvent.textDelta) {
-					parts.push(typedEvent.textDelta);
-				}
-			}
-		}
-
-		setCurrentStreamText(parts.join(""));
+		setCurrentStreamText(buildStreamingAssistantText(entries, lastEntry.runId));
 	}, [entries, isStreaming]);
 
 	// Apply mutations when new assistant messages arrive

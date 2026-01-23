@@ -1,73 +1,16 @@
 import type { RunDetail } from "@/api/client";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { MediaAttachments } from "@/components/session-events";
 import type { SessionStreamEntry } from "@/hooks/useCpSessionStream";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-
-// Check if a file path is an image based on extension
-function isImagePath(filePath: string | undefined): boolean {
-	if (!filePath) return false;
-	const ext = filePath.toLowerCase().split(".").pop();
-	return ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"].includes(ext ?? "");
-}
-
-// Construct URL to serve an image file via the API
-function getImageUrl(filePath: string): string {
-	return `/api/files?path=${encodeURIComponent(filePath)}`;
-}
-
-// Image modal for viewing full-size images
-function ImageModal({
-	src,
-	alt,
-	onClose,
-}: {
-	src: string;
-	alt: string;
-	onClose: () => void;
-}) {
-	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-			onClick={onClose}
-		>
-			<div className="relative max-w-[90vw] max-h-[90vh]">
-				<button
-					onClick={onClose}
-					className="absolute -top-8 right-0 text-white/70 hover:text-white text-sm"
-				>
-					✕ Close
-				</button>
-				<img
-					src={src}
-					alt={alt}
-					className="max-w-full max-h-[85vh] object-contain rounded border border-amber-500/30"
-					onClick={(e) => e.stopPropagation()}
-				/>
-				<p className="mt-2 text-center text-xs text-white/50 font-mono truncate">{alt}</p>
-			</div>
-		</div>
-	);
-}
-
-// Clickable thumbnail that opens modal
-function ImageThumbnail({ src, alt }: { src: string; alt: string }) {
-	const [showModal, setShowModal] = useState(false);
-
-	return (
-		<>
-			<img
-				src={src}
-				alt={alt}
-				className="max-w-full max-h-64 rounded border border-amber-500/30 object-contain cursor-pointer hover:border-amber-400/50 transition-colors"
-				loading="lazy"
-				onClick={() => setShowModal(true)}
-				title="Click to enlarge"
-			/>
-			{showModal && <ImageModal src={src} alt={alt} onClose={() => setShowModal(false)} />}
-		</>
-	);
-}
+import {
+	type MediaAttachment,
+	type TranscriptItem,
+	buildTranscript,
+	isImagePath,
+	resolveLocalFileUrl,
+	summarizeToolInput,
+} from "@/session-events";
 
 type RunSummaryProps = {
 	detail: RunDetail | null;
@@ -75,14 +18,7 @@ type RunSummaryProps = {
 	events: SessionStreamEntry[];
 };
 
-// Timeline item types - either a message or a tool execution
-type TimelineMessage = {
-	kind: "message";
-	seq: number;
-	content: string;
-	role: string;
-};
-
+// Fallback timeline tool type - extracted from API toolHistory
 type TimelineTool = {
 	kind: "tool";
 	seq: number;
@@ -92,103 +28,6 @@ type TimelineTool = {
 	isError: boolean;
 	durationMs?: number;
 };
-
-type TimelineItem = TimelineMessage | TimelineTool;
-
-type ToolStartInfo = {
-	input: Record<string, unknown>;
-	ts: number;
-	seq: number;
-};
-
-// Extract content blocks from various event message formats
-function extractTextContent(content: unknown): string | undefined {
-	if (!content) return undefined;
-	if (typeof content === "string") return content;
-	if (Array.isArray(content)) {
-		return (
-			content
-				.map((block) => {
-					if (typeof block === "object" && block !== null) {
-						const b = block as Record<string, unknown>;
-						if (b.type === "text" && typeof b.text === "string") return b.text;
-						if (b.type === "media_ref" && typeof b.filename === "string") return `[${b.filename}]`;
-					}
-					return "";
-				})
-				.filter(Boolean)
-				.join(" ")
-				.trim() || undefined
-		);
-	}
-	return undefined;
-}
-
-// Build a chronological timeline of messages and tool executions from SSE events
-function buildTimeline(events: SessionStreamEntry[]): TimelineItem[] {
-	const timeline: TimelineItem[] = [];
-	const toolStartMap = new Map<string, ToolStartInfo>();
-
-	for (const entry of events) {
-		const event = entry.event;
-		const kind = (event as Record<string, unknown>).kind ?? event.type;
-		const e = event as Record<string, unknown>;
-
-		if (kind === "tool_execution_start") {
-			const toolUseId = e.toolUseId as string;
-			if (toolUseId) {
-				toolStartMap.set(toolUseId, {
-					input: (e.input as Record<string, unknown>) ?? {},
-					ts: (e.ts as number) ?? 0,
-					seq: entry.seq,
-				});
-			}
-		} else if (kind === "tool_execution_end") {
-			const toolUseId = (e.toolUseId as string) ?? "";
-			const startInfo = toolStartMap.get(toolUseId);
-			const endTs = (e.ts as number) ?? 0;
-			const durationMs =
-				startInfo && endTs && startInfo.ts
-					? endTs - startInfo.ts
-					: (e.durationMs as number | undefined);
-
-			const inputFromEnd = (e.input as Record<string, unknown>) ?? {};
-			const input =
-				startInfo?.input && Object.keys(startInfo.input).length > 0
-					? startInfo.input
-					: inputFromEnd;
-
-			timeline.push({
-				kind: "tool",
-				seq: startInfo?.seq ?? entry.seq,
-				toolUseId,
-				toolName: (e.toolName as string) ?? "Tool",
-				input,
-				isError: (e.isError as boolean) ?? false,
-				durationMs,
-			});
-		} else if (kind === "message_end") {
-			const message = e.message as { content?: unknown; role?: string } | undefined;
-			const content = extractTextContent(message?.content);
-			const role = message?.role ?? "assistant";
-
-			// Only include assistant messages with content
-			if (content && role === "assistant") {
-				timeline.push({
-					kind: "message",
-					seq: entry.seq,
-					content,
-					role,
-				});
-			}
-		}
-	}
-
-	// Sort by sequence number to maintain chronological order
-	timeline.sort((a, b) => a.seq - b.seq);
-
-	return timeline;
-}
 
 // Fallback: extract tools from API toolHistory if no SSE events
 function extractToolsFromHistory(
@@ -207,48 +46,6 @@ function extractToolsFromHistory(
 	}));
 }
 
-// Get a short summary of tool input
-function getToolInputSummary(_toolName: string, input: Record<string, unknown>): string {
-	// File-based tools (Read, Write, Edit, NotebookEdit)
-	if (typeof input.file_path === "string") {
-		return input.file_path;
-	}
-	// Bash tool
-	if (typeof input.command === "string") {
-		const cmd = input.command;
-		return cmd.length > 60 ? `${cmd.slice(0, 57)}...` : cmd;
-	}
-	// Glob/Grep tools
-	if (typeof input.pattern === "string") {
-		const path = typeof input.path === "string" ? ` in ${input.path}` : "";
-		return `${input.pattern}${path}`;
-	}
-	// WebFetch/WebSearch
-	if (typeof input.url === "string") {
-		return input.url;
-	}
-	if (typeof input.query === "string") {
-		return input.query;
-	}
-	// Task tool
-	if (typeof input.prompt === "string") {
-		const prompt = input.prompt;
-		return prompt.length > 60 ? `${prompt.slice(0, 57)}...` : prompt;
-	}
-	if (typeof input.description === "string") {
-		return input.description;
-	}
-	// Fallback: find any string value that looks useful
-	for (const [key, value] of Object.entries(input)) {
-		if (typeof value === "string" && value.length > 0 && value.length < 100) {
-			// Skip metadata-like fields
-			if (["type", "kind", "id", "toolUseId"].includes(key)) continue;
-			return value.length > 60 ? `${value.slice(0, 57)}...` : value;
-		}
-	}
-	return "";
-}
-
 // Extract model name from message_update events
 function extractModelName(events: SessionStreamEntry[]): string | null {
 	for (const entry of events) {
@@ -262,7 +59,6 @@ function extractModelName(events: SessionStreamEntry[]): string | null {
 			const message = payload?.message as Record<string, unknown> | undefined;
 			const model = message?.model as string | undefined;
 			if (model) {
-				// Parse model name: "claude-sonnet-4-5-20250929" -> "sonnet"
 				if (model.includes("opus")) return "opus";
 				if (model.includes("sonnet")) return "sonnet";
 				if (model.includes("haiku")) return "haiku";
@@ -289,20 +85,37 @@ function isRunInProgress(events: SessionStreamEntry[]): boolean {
 	return hasStarted && !hasEnded;
 }
 
+function getFallbackToolAttachments(tool: TimelineTool): MediaAttachment[] {
+	const filePath =
+		typeof tool.input.file_path === "string" ? (tool.input.file_path as string) : undefined;
+	if (!tool.isError && tool.toolName === "Read" && filePath && isImagePath(filePath)) {
+		return [
+			{ kind: "image", src: resolveLocalFileUrl(filePath), alt: filePath, filename: filePath },
+		];
+	}
+	return [];
+}
+
 export function RunSummary({ detail, loading, events }: RunSummaryProps) {
-	// Build chronological timeline from SSE events
-	const timeline = buildTimeline(events);
+	// Shared transcript builder (single pipeline for session/run events).
+	const transcript: TranscriptItem[] = buildTranscript(events, {
+		includeUserPrompts: false,
+		includeToolCalls: true,
+		includeAssistantMessages: true,
+		includeMessageRoles: ["assistant"],
+	});
 
 	// Fallback to toolHistory from API if no SSE events
-	const fallbackTools = timeline.length === 0 ? extractToolsFromHistory(detail?.toolHistory) : [];
-	const hasTimeline = timeline.length > 0 || fallbackTools.length > 0;
+	const fallbackTools = transcript.length === 0 ? extractToolsFromHistory(detail?.toolHistory) : [];
+	const hasTimeline = transcript.length > 0 || fallbackTools.length > 0;
 
 	const modelName = extractModelName(events);
 	const inProgress = isRunInProgress(events);
 
+	const firstAssistantIndex = transcript.findIndex((item) => item.kind === "assistant");
+
 	return (
 		<div className="space-y-3">
-			{/* Loading state */}
 			{loading && <div className="text-[9px] text-muted-foreground/50 italic">Loading...</div>}
 
 			{/* Prompt */}
@@ -318,14 +131,11 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 			)}
 
 			{/* Chronological Timeline - interleaved messages and tools */}
-			{timeline.length > 0 && (
+			{transcript.length > 0 && (
 				<div className="space-y-2">
-					{timeline.map((item, idx) => {
+					{transcript.map((item, idx) => {
 						if (item.kind === "tool") {
-							const inputSummary = getToolInputSummary(item.toolName, item.input);
-							const filePath =
-								typeof item.input.file_path === "string" ? item.input.file_path : undefined;
-							const isReadImage = item.toolName === "Read" && isImagePath(filePath);
+							const inputSummary = summarizeToolInput(item.input);
 							return (
 								<div key={`tool-${item.toolUseId || idx}`} className="space-y-1">
 									<div
@@ -358,36 +168,44 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 											</span>
 										)}
 									</div>
-									{/* Render inline image for Read tool with image files */}
-									{isReadImage && filePath && !item.isError && (
+									{item.attachments.length > 0 && (
 										<div className="ml-4 mt-1">
-											<ImageThumbnail src={getImageUrl(filePath)} alt={filePath} />
+											<MediaAttachments attachments={item.attachments} />
 										</div>
 									)}
 								</div>
 							);
 						}
-						// Message block
-						return (
-							<div key={`msg-${item.seq}`} className="border-l-2 border-emerald-500/40 pl-2">
-								<div className="flex items-center gap-2 mb-1">
-									<span className="text-[8px] font-bold uppercase tracking-wider text-emerald-400/70">
-										RESPONSE
-									</span>
-									{modelName && idx === 0 && (
-										<span className="text-[8px] font-mono px-1 py-0.5 rounded bg-violet-500/20 text-violet-300/80">
-											{modelName}
+
+						if (item.kind === "assistant") {
+							return (
+								<div key={`msg-${item.id}`} className="border-l-2 border-emerald-500/40 pl-2">
+									<div className="flex items-center gap-2 mb-1">
+										<span className="text-[8px] font-bold uppercase tracking-wider text-emerald-400/70">
+											RESPONSE
 										</span>
+										{modelName && idx === firstAssistantIndex && (
+											<span className="text-[8px] font-mono px-1 py-0.5 rounded bg-violet-500/20 text-violet-300/80">
+												{modelName}
+											</span>
+										)}
+									</div>
+									<div className="text-[11px] text-foreground/80 leading-relaxed bg-emerald-500/5 px-2 py-1.5 rounded-sm">
+										<MarkdownContent
+											content={item.content}
+											className="prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:text-[10px] [&_pre]:text-[10px] [&_pre]:my-1 [&_h1]:text-[14px] [&_h1]:font-semibold [&_h1]:my-2 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:my-1.5 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:my-1 [&_h4]:text-[12px] [&_h4]:font-medium [&_h4]:my-1"
+										/>
+									</div>
+									{item.attachments.length > 0 && (
+										<div className="mt-1">
+											<MediaAttachments attachments={item.attachments} />
+										</div>
 									)}
 								</div>
-								<div className="text-[11px] text-foreground/80 leading-relaxed bg-emerald-500/5 px-2 py-1.5 rounded-sm">
-									<MarkdownContent
-										content={item.content}
-										className="prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:text-[10px] [&_pre]:text-[10px] [&_pre]:my-1 [&_h1]:text-[14px] [&_h1]:font-semibold [&_h1]:my-2 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:my-1.5 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:my-1 [&_h4]:text-[12px] [&_h4]:font-medium [&_h4]:my-1"
-									/>
-								</div>
-							</div>
-						);
+							);
+						}
+
+						return null;
 					})}
 				</div>
 			)}
@@ -396,10 +214,8 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 			{fallbackTools.length > 0 && (
 				<div className="space-y-1">
 					{fallbackTools.map((tool, idx) => {
-						const inputSummary = getToolInputSummary(tool.toolName, tool.input);
-						const filePath =
-							typeof tool.input.file_path === "string" ? tool.input.file_path : undefined;
-						const isReadImage = tool.toolName === "Read" && isImagePath(filePath);
+						const inputSummary = summarizeToolInput(tool.input);
+						const attachments = getFallbackToolAttachments(tool);
 						return (
 							<div key={idx} className="space-y-1">
 								<div
@@ -432,10 +248,9 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 										</span>
 									)}
 								</div>
-								{/* Render inline image for Read tool with image files */}
-								{isReadImage && filePath && !tool.isError && (
+								{attachments.length > 0 && (
 									<div className="ml-4 mt-1">
-										<ImageThumbnail src={getImageUrl(filePath)} alt={filePath} />
+										<MediaAttachments attachments={attachments} />
 									</div>
 								)}
 							</div>
@@ -445,7 +260,7 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 			)}
 
 			{/* Fallback response from API (when no SSE events) */}
-			{timeline.length === 0 && detail?.response?.content && (
+			{transcript.length === 0 && detail?.response?.content && (
 				<div className="border-l-2 border-emerald-500/40 pl-2">
 					<div className="flex items-center gap-2 mb-1">
 						<span className="text-[8px] font-bold uppercase tracking-wider text-emerald-400/70">

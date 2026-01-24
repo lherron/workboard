@@ -3,19 +3,19 @@ import { useParams } from "wouter";
 
 /**
  * Route wrapper for Spec Writer views.
- * Handles /workspace/:workspaceId/spec-writer and /workspace/:workspaceId/spec-writer/:specSlug routes.
+ * Handles /projects/:projectId/spec-writer and /projects/:projectId/spec-writer/:specSlug routes.
  */
 export function SpecWriterRoute() {
-	const params = useParams<{ workspaceId?: string; specSlug?: string }>();
-	const { workspaceId, specSlug } = params;
+	const params = useParams<{ projectId?: string; specSlug?: string }>();
+	const { projectId, specSlug } = params;
 
-	if (!workspaceId) {
+	if (!projectId) {
 		return (
 			<div className="flex items-center justify-center h-screen bg-background text-foreground">
-				<p className="text-muted-foreground font-mono">Missing workspace ID</p>
+				<p className="text-muted-foreground font-mono">Missing project ID</p>
 			</div>
 		);
 	}
 
-	return <SpecWriterLayout workspaceId={workspaceId} specSlug={specSlug || null} />;
+	return <SpecWriterLayout workspaceId={projectId} specSlug={specSlug || null} />;
 }

@@ -30,8 +30,8 @@ import { Redirect, Route, Switch } from "wouter";
  * /plan                                          → PlanModeView
  * /actors                                        → ActorManagement
  * /workspace/:workspaceId                        → ProjectDashboard
- * /workspace/:workspaceId/spec-writer            → SpecWriter (spec list, auto-select newest)
- * /workspace/:workspaceId/spec-writer/:specSlug  → SpecWriter with specific spec open
+ * /projects/:projectId/spec-writer               → SpecWriter (spec list, auto-select newest)
+ * /projects/:projectId/spec-writer/:specSlug     → SpecWriter with specific spec open
  * /workspace/:workspaceId/:containerId           → TaskList (auto-select first task)
  * /workspace/:workspaceId/:containerId/:taskId   → TaskList + TaskDetail
  * /prompt-shaping/:workspaceId/:taskId           → PromptShapingPage
@@ -88,9 +88,9 @@ export function AppRoutes() {
 					<Route path="/sessions/:sessionId/timeline" component={SessionTimelineRoute} />
 					<Route path="/sessions/:sessionId/chat" component={SessionChatRoute} />
 					<Route path="/prompt-shaping/:workspaceId/:taskId" component={PromptShapingRoute} />
-					{/* Spec Writer routes - must be before greedy :containerId routes */}
-					<Route path="/workspace/:workspaceId/spec-writer/:specSlug" component={SpecWriterRoute} />
-					<Route path="/workspace/:workspaceId/spec-writer" component={SpecWriterRoute} />
+					{/* Spec Writer routes */}
+					<Route path="/projects/:projectId/spec-writer/:specSlug" component={SpecWriterRoute} />
+					<Route path="/projects/:projectId/spec-writer" component={SpecWriterRoute} />
 					<Route path="/workspace/:workspaceId/:containerId/:taskId" component={WorkspaceRoute} />
 					<Route path="/workspace/:workspaceId/:containerId" component={WorkspaceRoute} />
 					<Route path="/workspace/:workspaceId" component={WorkspaceRoute} />

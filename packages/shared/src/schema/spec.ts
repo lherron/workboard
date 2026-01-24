@@ -76,8 +76,8 @@ export const specMetadataSchema = z.object({
 	projectId: z.string(), // Workspace/project ID
 	createdAt: z.number(), // Timestamp
 	updatedAt: z.number(), // Timestamp
-	createdBy: z.string(), // Actor slug or ID
-	updatedBy: z.string(), // Actor slug or ID
+	createdBy: z.string().optional(), // Actor slug or ID (optional)
+	updatedBy: z.string().optional(), // Actor slug or ID (optional)
 	sessionId: z.string().nullable().default(null), // Architect chat session for continuity
 });
 export type SpecMetadata = z.infer<typeof specMetadataSchema>;

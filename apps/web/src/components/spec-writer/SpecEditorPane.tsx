@@ -755,7 +755,7 @@ export function SpecEditorPane({
 				<div ref={rendererRef} className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
 					<div
 						className={cn(
-							"max-w-none font-mono text-sm",
+							"max-w-none font-mono text-[13px]",
 							"[&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:border-b [&_h1]:border-border/30 [&_h1]:pb-2 [&_h1]:mb-4",
 							"[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-primary [&_h2]:mt-6 [&_h2]:mb-3",
 							"[&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground/90 [&_h3]:mt-4 [&_h3]:mb-2",

@@ -173,13 +173,13 @@ export function useSpecDocument({
 		const sorted = [...specListState.specs].sort((a, b) => b.updatedAt - a.updatedAt);
 		const firstSlug = sorted[0].slug;
 
-		navigate(`/workspace/${workspaceId}/spec-writer/${firstSlug}`, { replace: true });
+		navigate(`/projects/${workspaceId}/spec-writer/${firstSlug}`, { replace: true });
 	}, [specSlug, specListState, workspaceId, navigate]);
 
 	// Handle spec selection
 	const handleSelectSpec = useCallback(
 		(slug: string) => {
-			navigate(`/workspace/${workspaceId}/spec-writer/${slug}`);
+			navigate(`/projects/${workspaceId}/spec-writer/${slug}`);
 		},
 		[workspaceId, navigate],
 	);
@@ -214,7 +214,7 @@ export function useSpecDocument({
 
 				// Refresh spec list + navigate
 				loadSpecList(true);
-				navigate(`/workspace/${workspaceId}/spec-writer/${created.slug}`);
+				navigate(`/projects/${workspaceId}/spec-writer/${created.slug}`);
 			} catch (err) {
 				setSpecListState((prev) => ({ ...prev, error: err as ApiClientError }));
 			} finally {
@@ -232,7 +232,7 @@ export function useSpecDocument({
 
 				// Navigate away if we deleted the current spec
 				if (slug === specSlug) {
-					navigate(`/workspace/${workspaceId}/spec-writer`);
+					navigate(`/projects/${workspaceId}/spec-writer`);
 				}
 			} catch (err) {
 				console.error("Failed to delete spec:", err);

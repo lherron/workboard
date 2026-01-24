@@ -284,7 +284,7 @@ export function ProjectDetailRoute() {
 								title="Spec Writer"
 								description="Create and edit specifications"
 								icon={<SpecsIcon />}
-								href={`/workspace/${projectId}/spec-writer`}
+								href={`/projects/${projectId}/spec-writer`}
 								accent="violet"
 								stat={`${totalSpecs} specs`}
 							/>
@@ -378,7 +378,7 @@ export function ProjectDetailRoute() {
 						{/* Specs preview */}
 						<ContentPanel
 							title="Specifications"
-							href={`/workspace/${projectId}/spec-writer`}
+							href={`/projects/${projectId}/spec-writer`}
 							empty={data.specs.length === 0}
 							emptyText="No specs yet. Create a spec to document your project."
 						>
@@ -388,7 +388,7 @@ export function ProjectDetailRoute() {
 								))}
 								{data.specs.length > 4 && (
 									<Link
-										href={`/workspace/${projectId}/spec-writer`}
+										href={`/projects/${projectId}/spec-writer`}
 										className="block text-center py-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors"
 									>
 										+{data.specs.length - 4} more specs
@@ -793,7 +793,7 @@ function RunRow({ run }: { run: RunSummary }) {
 function SpecRow({ spec, projectId }: { spec: SpecManifest; projectId: string }) {
 	return (
 		<Link
-			href={`/workspace/${projectId}/spec-writer/${spec.slug}`}
+			href={`/projects/${projectId}/spec-writer/${spec.slug}`}
 			className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-900/20 transition-colors group"
 		>
 			<svg

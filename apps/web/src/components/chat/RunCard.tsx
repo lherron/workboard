@@ -10,11 +10,13 @@ import type { SessionStreamEntry } from "@/hooks/useCpSessionStream";
 import type { RunLike } from "@/lib/chat";
 import { formatTimestamp } from "@/lib/datetime";
 import { getRunStatusStyle } from "@/lib/runStatus";
+import { groupSubagentEvents } from "@/lib/subagentEvents";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EventBlock } from "../work-items/EventBlock";
 import { RunSummary } from "../work-items/RunSummary";
+import { CollapsibleSubagent } from "./CollapsibleSubagent";
 
 export type RunCardProps = {
 	/** Run identifier */
@@ -66,6 +68,10 @@ export function RunCard({
 
 	const status = run?.status ?? "unknown";
 	const statusStyle = getRunStatusStyle(status);
+	const isLive = status === "running";
+
+	// Group subagent events under their parent Task tools
+	const groupedEvents = useMemo(() => groupSubagentEvents(events), [events]);
 
 	// Check if run_completed event exists in events
 	const hasCompleted = hasCompletedEvent(events);
@@ -138,16 +144,32 @@ export function RunCard({
 			</div>
 
 			{/* Events - expanded below header, above prompt/response */}
-			{eventsExpanded && events.length > 0 && (
+			{eventsExpanded && groupedEvents.length > 0 && (
 				<div className="mb-3 ml-2 border-l border-slate-800/30 pl-2 space-y-1">
-					{events.map((entry, index) => (
-						<EventBlock
-							key={entry.id}
-							entry={entry}
-							roleColor={themeColor ?? "#64748b"}
-							isNew={entry.source === "live" && index === events.length - 1}
-						/>
-					))}
+					{groupedEvents.map((grouped, index) => {
+						// Task tool with subagent events - render collapsed
+						if (grouped.taskMeta && grouped.subagentEvents) {
+							return (
+								<CollapsibleSubagent
+									key={grouped.entry.id}
+									description={grouped.taskMeta.description}
+									subagentType={grouped.taskMeta.subagentType}
+									events={grouped.subagentEvents}
+									isLive={isLive}
+									themeColor={themeColor}
+								/>
+							);
+						}
+						// Regular event
+						return (
+							<EventBlock
+								key={grouped.entry.id}
+								entry={grouped.entry}
+								roleColor={themeColor ?? "#64748b"}
+								isNew={grouped.entry.source === "live" && index === groupedEvents.length - 1}
+							/>
+						);
+					})}
 				</div>
 			)}
 

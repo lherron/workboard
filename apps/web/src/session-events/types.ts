@@ -93,6 +93,8 @@ export type TranscriptToolCall = {
 	durationMs?: number;
 	outputText?: string;
 	attachments: MediaAttachment[];
+	/** Parent tool use ID for subagent tools (links to parent Task tool) */
+	parentToolUseId?: string;
 };
 
 export type TranscriptItem = TranscriptUserPrompt | TranscriptAssistantMessage | TranscriptToolCall;

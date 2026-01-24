@@ -6,11 +6,14 @@ import { cn } from "@/lib/utils";
 import {
 	type MediaAttachment,
 	type TranscriptItem,
+	type TranscriptToolCall,
 	buildTranscript,
 	isImagePath,
 	resolveLocalFileUrl,
 	summarizeToolInput,
 } from "@/session-events";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
 type RunSummaryProps = {
 	detail: RunDetail | null;
@@ -85,6 +88,61 @@ function isRunInProgress(events: SessionStreamEntry[]): boolean {
 	return hasStarted && !hasEnded;
 }
 
+// Grouped transcript item - tool with optional children
+type GroupedTranscriptItem =
+	| TranscriptItem
+	| (TranscriptToolCall & { childTools?: TranscriptToolCall[] });
+
+/**
+ * Group subagent tools under their parent Task tools.
+ */
+function groupTranscriptTools(items: TranscriptItem[]): GroupedTranscriptItem[] {
+	// Build map of Task tools (tools named "Task")
+	const taskToolMap = new Map<string, TranscriptToolCall & { childTools: TranscriptToolCall[] }>();
+	for (const item of items) {
+		if (item.kind === "tool" && item.toolName === "Task") {
+			taskToolMap.set(item.toolUseId, { ...item, childTools: [] });
+		}
+	}
+
+	// If no Task tools, return as-is
+	if (taskToolMap.size === 0) {
+		return items;
+	}
+
+	// Collect child tools and track which items to skip
+	const childToolIds = new Set<string>();
+	for (const item of items) {
+		if (item.kind === "tool" && item.parentToolUseId) {
+			const parent = taskToolMap.get(item.parentToolUseId);
+			if (parent) {
+				parent.childTools.push(item);
+				childToolIds.add(item.toolUseId);
+			}
+		}
+	}
+
+	// Build grouped result, filtering out child tools from top level
+	const result: GroupedTranscriptItem[] = [];
+	for (const item of items) {
+		if (item.kind === "tool") {
+			// Skip child tools (they're nested under parent)
+			if (childToolIds.has(item.toolUseId)) continue;
+			// Use grouped version for Task tools
+			if (item.toolName === "Task") {
+				const grouped = taskToolMap.get(item.toolUseId);
+				if (grouped) {
+					result.push(grouped);
+					continue;
+				}
+			}
+		}
+		result.push(item);
+	}
+
+	return result;
+}
+
 function getFallbackToolAttachments(tool: TimelineTool): MediaAttachment[] {
 	const filePath =
 		typeof tool.input.file_path === "string" ? (tool.input.file_path as string) : undefined;
@@ -96,6 +154,116 @@ function getFallbackToolAttachments(tool: TimelineTool): MediaAttachment[] {
 	return [];
 }
 
+/**
+ * Render a single tool item (used for both top-level and nested tools).
+ */
+function ToolItem({ tool, nested = false }: { tool: TranscriptToolCall; nested?: boolean }) {
+	const inputSummary = summarizeToolInput(tool.input);
+	return (
+		<div className="space-y-1">
+			<div
+				className={cn(
+					"rounded-sm border px-2 py-1 flex items-center gap-2",
+					tool.isError ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5",
+					nested && "ml-4 border-l-2 border-l-violet-500/30",
+				)}
+			>
+				<span
+					className={cn("text-[10px] shrink-0", tool.isError ? "text-red-400" : "text-emerald-400")}
+				>
+					{tool.isError ? "✗" : "✓"}
+				</span>
+				<span className="text-[10px] font-bold text-amber-300 shrink-0">{tool.toolName}</span>
+				{inputSummary && (
+					<span className="text-[9px] font-mono text-muted-foreground/50 truncate min-w-0">
+						{inputSummary}
+					</span>
+				)}
+				{tool.durationMs !== undefined && (
+					<span className="text-[8px] font-mono text-muted-foreground/40 ml-auto shrink-0">
+						{tool.durationMs}ms
+					</span>
+				)}
+			</div>
+			{tool.attachments.length > 0 && (
+				<div className="ml-4 mt-1">
+					<MediaAttachments attachments={tool.attachments} />
+				</div>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Collapsible Task tool with nested child tools.
+ */
+function CollapsibleTaskTool({
+	tool,
+	childTools,
+}: { tool: TranscriptToolCall; childTools: TranscriptToolCall[] }) {
+	const [expanded, setExpanded] = useState(false);
+	const inputSummary = summarizeToolInput(tool.input);
+	const hasChildren = childTools.length > 0;
+
+	return (
+		<div className="space-y-1">
+			<div
+				className={cn(
+					"rounded-sm border px-2 py-1 flex items-center gap-2",
+					tool.isError ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5",
+				)}
+			>
+				{/* Expand/collapse button */}
+				{hasChildren && (
+					<button
+						type="button"
+						onClick={() => setExpanded(!expanded)}
+						className="text-slate-500 hover:text-slate-400 transition-colors shrink-0"
+					>
+						{expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+					</button>
+				)}
+				<span
+					className={cn("text-[10px] shrink-0", tool.isError ? "text-red-400" : "text-emerald-400")}
+				>
+					{tool.isError ? "✗" : "✓"}
+				</span>
+				<span className="text-[10px] font-bold text-amber-300 shrink-0">{tool.toolName}</span>
+				{inputSummary && (
+					<span className="text-[9px] font-mono text-muted-foreground/50 truncate min-w-0">
+						{inputSummary}
+					</span>
+				)}
+				{hasChildren && !expanded && (
+					<span className="text-[8px] text-violet-400/60 shrink-0">
+						({childTools.length} tools)
+					</span>
+				)}
+				{tool.durationMs !== undefined && (
+					<span className="text-[8px] font-mono text-muted-foreground/40 ml-auto shrink-0">
+						{tool.durationMs}ms
+					</span>
+				)}
+			</div>
+
+			{/* Expanded child tools */}
+			{expanded && hasChildren && (
+				<div className="space-y-1 ml-2 pl-2 border-l border-violet-500/20">
+					{childTools.map((child) => (
+						<ToolItem key={child.toolUseId} tool={child} nested />
+					))}
+				</div>
+			)}
+
+			{tool.attachments.length > 0 && (
+				<div className="ml-4 mt-1">
+					<MediaAttachments attachments={tool.attachments} />
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 	// Shared transcript builder (single pipeline for session/run events).
 	const transcript: TranscriptItem[] = buildTranscript(events, {
@@ -105,14 +273,17 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 		includeMessageRoles: ["assistant"],
 	});
 
+	// Group subagent tools under their parent Task tools
+	const groupedTranscript = groupTranscriptTools(transcript);
+
 	// Fallback to toolHistory from API if no SSE events
 	const fallbackTools = transcript.length === 0 ? extractToolsFromHistory(detail?.toolHistory) : [];
-	const hasTimeline = transcript.length > 0 || fallbackTools.length > 0;
+	const hasTimeline = groupedTranscript.length > 0 || fallbackTools.length > 0;
 
 	const modelName = extractModelName(events);
 	const inProgress = isRunInProgress(events);
 
-	const firstAssistantIndex = transcript.findIndex((item) => item.kind === "assistant");
+	const firstAssistantIndex = groupedTranscript.findIndex((item) => item.kind === "assistant");
 
 	return (
 		<div className="space-y-3">
@@ -131,50 +302,25 @@ export function RunSummary({ detail, loading, events }: RunSummaryProps) {
 			)}
 
 			{/* Chronological Timeline - interleaved messages and tools */}
-			{transcript.length > 0 && (
+			{groupedTranscript.length > 0 && (
 				<div className="space-y-2">
-					{transcript.map((item, idx) => {
+					{groupedTranscript.map((item, idx) => {
 						if (item.kind === "tool") {
-							const inputSummary = summarizeToolInput(item.input);
-							return (
-								<div key={`tool-${item.toolUseId || idx}`} className="space-y-1">
-									<div
-										className={cn(
-											"rounded-sm border px-2 py-1 flex items-center gap-2",
-											item.isError
-												? "border-red-500/20 bg-red-500/5"
-												: "border-amber-500/20 bg-amber-500/5",
-										)}
-									>
-										<span
-											className={cn(
-												"text-[10px] shrink-0",
-												item.isError ? "text-red-400" : "text-emerald-400",
-											)}
-										>
-											{item.isError ? "✗" : "✓"}
-										</span>
-										<span className="text-[10px] font-bold text-amber-300 shrink-0">
-											{item.toolName}
-										</span>
-										{inputSummary && (
-											<span className="text-[9px] font-mono text-muted-foreground/50 truncate min-w-0">
-												{inputSummary}
-											</span>
-										)}
-										{item.durationMs !== undefined && (
-											<span className="text-[8px] font-mono text-muted-foreground/40 ml-auto shrink-0">
-												{item.durationMs}ms
-											</span>
-										)}
-									</div>
-									{item.attachments.length > 0 && (
-										<div className="ml-4 mt-1">
-											<MediaAttachments attachments={item.attachments} />
-										</div>
-									)}
-								</div>
-							);
+							// Check if this is a Task tool with children
+							const toolWithChildren = item as TranscriptToolCall & {
+								childTools?: TranscriptToolCall[];
+							};
+							if (toolWithChildren.childTools && toolWithChildren.childTools.length > 0) {
+								return (
+									<CollapsibleTaskTool
+										key={`tool-${item.toolUseId || idx}`}
+										tool={item}
+										childTools={toolWithChildren.childTools}
+									/>
+								);
+							}
+							// Regular tool (no children)
+							return <ToolItem key={`tool-${item.toolUseId || idx}`} tool={item} />;
 						}
 
 						if (item.kind === "assistant") {

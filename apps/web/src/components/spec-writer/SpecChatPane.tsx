@@ -35,12 +35,20 @@ type Props = {
  * Maintains session continuity - agent updates specs directly via API.
  */
 export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
-	const { entries, runs, isConnected, isConnecting, error, sendMessage, isSending } =
-		useArchitectChat({
-			workspaceId,
-			spec,
-			onSpecUpdate,
-		});
+	const {
+		entries,
+		runs,
+		isConnected,
+		isConnecting,
+		error,
+		sendMessage,
+		isSending,
+		harnessSessionId,
+	} = useArchitectChat({
+		workspaceId,
+		spec,
+		onSpecUpdate,
+	});
 
 	// Group events by run (like ConciergePanel)
 	const runGroups = useMemo(() => groupEventsByRun(entries, runs), [entries, runs]);
@@ -90,7 +98,8 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 
 	// Handle opening terminal to resume session
 	const handleOpenTerminal = useCallback(async () => {
-		if (!spec?.metadata.sessionId || hasLiveRun) return;
+		// Need harness session ID (not CP session ID) for Claude Code resume
+		if (!harnessSessionId || hasLiveRun) return;
 
 		setIsLaunchingTerminal(true);
 		try {
@@ -98,7 +107,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 				projectId: workspaceId,
 				tool: {
 					kind: "shell",
-					command: `asp run architect --resume ${spec.metadata.sessionId}`,
+					command: `asp run architect --resume ${harnessSessionId}`,
 				},
 				statusbar: {
 					right: `architect@${workspaceId}`,
@@ -111,7 +120,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 		} finally {
 			setIsLaunchingTerminal(false);
 		}
-	}, [workspaceId, spec?.metadata.sessionId, hasLiveRun]);
+	}, [workspaceId, harnessSessionId, hasLiveRun]);
 
 	// Handle new chat (clear session from spec)
 	const handleNewChat = useCallback(async () => {
@@ -204,7 +213,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 					{hasSession && (
 						<button
 							onClick={handleOpenTerminal}
-							disabled={hasLiveRun || isLaunchingTerminal}
+							disabled={hasLiveRun || isLaunchingTerminal || !harnessSessionId}
 							className={cn(
 								"p-1.5 rounded transition-colors",
 								"text-slate-500 hover:text-cyan-400 hover:bg-slate-800",
@@ -332,7 +341,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 				isSubmitting={isSending}
 				disabled={hasLiveRun}
 				disabledMessage={hasLiveRun ? "Run in progress..." : undefined}
-				submitKey="cmd-enter"
+				submitKey="enter"
 				variant="minimal"
 				autoFocus={false}
 			/>

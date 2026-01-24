@@ -7,7 +7,7 @@
 
 import { cn } from "@/lib/utils";
 import { Send } from "lucide-react";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export type ChatInputProps = {
 	/** Callback when user submits a prompt */
@@ -73,6 +73,18 @@ export function ChatInput({
 	const [value, setValue] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+	// Auto-resize textarea as content grows
+	// biome-ignore lint/correctness/useExhaustiveDependencies: value is intentional trigger for resize
+	useLayoutEffect(() => {
+		const textarea = textareaRef.current;
+		if (!textarea) return;
+
+		// Reset height to auto to get the correct scrollHeight
+		textarea.style.height = "auto";
+		// Set to scrollHeight, capped by maxHeight (120px)
+		textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+	}, [value]);
+
 	const handleSubmit = () => {
 		if (!value.trim() || isSubmitting || disabled) return;
 
@@ -135,13 +147,13 @@ export function ChatInput({
 							isDefault
 								? [
 										"rounded-lg border bg-slate-900/80 px-4 py-2.5",
-										"text-[12px] text-slate-200 placeholder:text-slate-600",
+										"text-[13px] text-slate-200 placeholder:text-slate-600",
 										"border-slate-700/50 focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/20",
 										"focus:outline-none",
 									]
 								: [
 										"rounded border border-border/40 bg-background/50 px-2 py-1.5",
-										"text-[11px] placeholder:text-muted-foreground/40",
+										"text-[13px] placeholder:text-muted-foreground/40",
 										"focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20",
 									],
 							"disabled:opacity-50 disabled:cursor-not-allowed",

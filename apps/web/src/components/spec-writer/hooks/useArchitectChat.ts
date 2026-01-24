@@ -33,6 +33,8 @@ export type UseArchitectChatResult = {
 	isStreaming: boolean;
 	currentStreamText: string;
 	error: Error | null;
+	/** Harness session ID for resuming in Claude Code terminal */
+	harnessSessionId: string | null;
 
 	sendMessage: (prompt: string) => Promise<void>;
 	isSending: boolean;
@@ -97,7 +99,7 @@ export function useArchitectChat({
 	} = useCpSessionStream({
 		sessionId,
 		enabled: !!sessionId,
-		maxEvents: 500,
+		maxEvents: 2000,
 		mode: "watch",
 	});
 
@@ -165,6 +167,27 @@ export function useArchitectChat({
 		if (!lastEntry?.runId) return;
 		setCurrentStreamText(buildStreamingAssistantText(sortedEntries, lastEntry.runId));
 	}, [sortedEntries, isStreaming]);
+
+	// Extract harness session ID from events (for resuming in Claude Code terminal)
+	const harnessSessionId = useMemo(() => {
+		for (const entry of sortedEntries) {
+			// The harness session_id is in event.payload.session_id for message events
+			const event = entry.event as Record<string, unknown>;
+			const payload = event.payload as Record<string, unknown> | undefined;
+			const sessionId = payload?.session_id;
+			if (typeof sessionId === "string") {
+				debugLog("[ArchitectChat]", "Found harnessSessionId", sessionId);
+				return sessionId;
+			}
+		}
+		if (sortedEntries.length > 0) {
+			debugLog("[ArchitectChat]", "No harnessSessionId found in", sortedEntries.length, "entries");
+			// Log first entry structure for debugging
+			const first = sortedEntries[0];
+			debugLog("[ArchitectChat]", "First entry event keys:", Object.keys(first.event));
+		}
+		return null;
+	}, [sortedEntries]);
 
 	// Poll for spec updates made by the agent
 	useEffect(() => {
@@ -298,6 +321,7 @@ Current spec: "${currentSpec.title}" (rev ${currentSpec.rev})
 		isStreaming,
 		currentStreamText,
 		error: streamError || sendError,
+		harnessSessionId,
 		sendMessage,
 		isSending,
 	};

@@ -25,6 +25,7 @@ type ToolStartInfo = {
 	startedAt: number;
 	seq: number;
 	runId?: string;
+	parentToolUseId?: string;
 };
 
 type MessageStreamInfo = {
@@ -92,11 +93,21 @@ export function buildTranscript(
 		if (kind === "tool_execution_start" && includeToolCalls) {
 			const toolUseId = typeof e.toolUseId === "string" ? (e.toolUseId as string) : undefined;
 			if (toolUseId) {
+				// Extract parentToolUseId - check event level first (new format), then payload (legacy)
+				const payload = e.payload as Record<string, unknown> | undefined;
+				const parentToolUseId =
+					typeof e.parentToolUseId === "string"
+						? (e.parentToolUseId as string)
+						: typeof payload?.parent_tool_use_id === "string"
+							? (payload.parent_tool_use_id as string)
+							: undefined;
+
 				toolStartById.set(toolUseId, {
 					input: (e.input as Record<string, unknown>) ?? {},
 					startedAt: (e.ts as number | undefined) ?? occurredAt,
 					seq: entry.seq,
 					runId,
+					parentToolUseId,
 				});
 			}
 			continue;
@@ -137,6 +148,7 @@ export function buildTranscript(
 				durationMs,
 				outputText,
 				attachments,
+				parentToolUseId: startInfo?.parentToolUseId,
 			};
 			items.push(item);
 			continue;

@@ -252,7 +252,7 @@ test.describe("Spec Writer Routing", () => {
 		await setupMockRoutes(page);
 
 		// Navigate directly to spec-writer
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 
 		// Should show spec-writer header
 		await expect(page.locator("text=spec-writer")).toBeVisible({ timeout: 10000 });
@@ -261,7 +261,7 @@ test.describe("Spec Writer Routing", () => {
 	test("spec-writer route shows new spec button", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 
 		// Should show the "new spec" button in the nav panel
 		await expect(page.locator("text=new spec")).toBeVisible({ timeout: 10000 });
@@ -271,7 +271,7 @@ test.describe("Spec Writer Routing", () => {
 		await setupMockRoutes(page);
 
 		// Navigate to a specific spec
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 
 		// Should show the spec title in the nav list (first match in the list)
 		await expect(page.locator("ul li").filter({ hasText: "Test Spec One" }).first()).toBeVisible({
@@ -284,7 +284,7 @@ test.describe("Spec Writer Nav Panel", () => {
 	test("shows spec count in footer", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Should show spec count (2 specs in mock data)
@@ -294,7 +294,7 @@ test.describe("Spec Writer Nav Panel", () => {
 	test("clicking new spec shows title input", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Click the "new spec" button
@@ -310,7 +310,7 @@ test.describe("Spec Writer Nav Panel", () => {
 	test("escape key cancels new spec creation", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Click the "new spec" button
@@ -331,7 +331,7 @@ test.describe("Spec Writer Nav Panel", () => {
 	test("shows specs in the list", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Should show both mock specs in the nav list
@@ -348,7 +348,7 @@ test.describe("Spec Writer Editor", () => {
 	test("shows spec content when spec is selected", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// The editor should show spec content (CodeMirror loads the markdown)
@@ -359,7 +359,7 @@ test.describe("Spec Writer Editor", () => {
 	test("graph toggle button exists and works", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for spec to load and graph toggle to appear
@@ -388,7 +388,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("can create a new spec", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Get initial spec count
@@ -415,7 +415,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("can select a spec from the list", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Click on the second spec to select it
@@ -431,7 +431,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("delete confirmation dialog appears when clicking delete", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Hover over a spec list item to reveal the delete button
@@ -455,7 +455,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("escape key closes delete confirmation dialog", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Open delete dialog
@@ -477,7 +477,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("cancel button closes delete confirmation dialog", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Open delete dialog
@@ -499,7 +499,7 @@ test.describe("Spec Writer CRUD Operations", () => {
 	test("can delete a spec", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Initial count
@@ -526,7 +526,7 @@ test.describe("Spec Writer Graph Pane", () => {
 	test("graph pane can be toggled", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for spec to load and graph toggle to appear
@@ -553,7 +553,7 @@ test.describe("Spec Writer Graph Pane", () => {
 	test("graph shows spec structure nodes", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for graph to load
@@ -570,7 +570,7 @@ test.describe("Spec Writer Actions", () => {
 	test("copy markdown button appears when spec is selected", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Copy markdown button should be visible when spec is selected
@@ -580,7 +580,7 @@ test.describe("Spec Writer Actions", () => {
 	test("save button is disabled when no changes", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for spec to load
@@ -600,7 +600,7 @@ test.describe("Spec Writer Chat Pane", () => {
 		// Set viewport to large desktop size
 		await page.setViewportSize({ width: 1400, height: 900 });
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// On xl screens (1280px+), the chat pane should be visible
@@ -622,7 +622,7 @@ test.describe("Spec Writer Chat Pane", () => {
 		// Set viewport to small size (below xl breakpoint)
 		await page.setViewportSize({ width: 1200, height: 900 });
 
-		await page.goto("/workspace/test-workspace/spec-writer/test-spec-one");
+		await page.goto("/projects/test-workspace/spec-writer/test-spec-one");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for the page to settle
@@ -656,7 +656,7 @@ test.describe("Spec Writer Empty State", () => {
 			}
 		});
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Should show 0 specs count
@@ -671,7 +671,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("filter input is visible when specs exist", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -697,7 +697,7 @@ test.describe("Spec Writer Search/Filter", () => {
 			}
 		});
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for empty state
@@ -710,7 +710,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("filtering narrows down the spec list", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -734,7 +734,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("shows no match message when filter has no results", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -754,7 +754,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("clear filter button clears the filter", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -781,7 +781,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("escape key clears the filter", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -810,7 +810,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("X button clears the filter when visible", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load
@@ -838,7 +838,7 @@ test.describe("Spec Writer Search/Filter", () => {
 	test("filter is case-insensitive", async ({ page }) => {
 		await setupMockRoutes(page);
 
-		await page.goto("/workspace/test-workspace/spec-writer");
+		await page.goto("/projects/test-workspace/spec-writer");
 		await page.waitForLoadState("networkidle");
 
 		// Wait for specs to load

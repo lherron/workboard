@@ -29,7 +29,7 @@ test.describe("Spec Writer Live", () => {
 		await page.setViewportSize({ width: 1600, height: 1000 });
 
 		// Navigate to spec writer
-		await page.goto(`/workspace/${projectId}/spec-writer/${specSlug}`);
+		await page.goto(`/projects/${projectId}/spec-writer/${specSlug}`);
 		await page.waitForLoadState("networkidle");
 
 		// Wait for spec to load - look for spec title
@@ -53,7 +53,7 @@ test.describe("Spec Writer Live", () => {
 	test("architect chat shows error when session backend not configured", async ({ page }) => {
 		await page.setViewportSize({ width: 1600, height: 1000 });
 
-		await page.goto(`/workspace/${projectId}/spec-writer/${specSlug}`);
+		await page.goto(`/projects/${projectId}/spec-writer/${specSlug}`);
 		await page.waitForLoadState("networkidle");
 
 		// Wait for spec to load

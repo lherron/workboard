@@ -6,6 +6,8 @@ import { ProjectDetailRoute } from "@/routes/ProjectDetailRoute";
 import { ProjectRosterRoute } from "@/routes/ProjectRosterRoute";
 import { ProjectsIndexRoute } from "@/routes/ProjectsIndexRoute";
 import { PromptShapingRoute } from "@/routes/PromptShapingRoute";
+import { RalphProjectRoute } from "@/routes/RalphProjectRoute";
+import { RalphRunRoute } from "@/routes/RalphRunRoute";
 import { SessionChatRoute } from "@/routes/SessionChatRoute";
 import { SessionTimelineRoute } from "@/routes/SessionTimelineRoute";
 import { SpecWriterRoute } from "@/routes/SpecWriterRoute";
@@ -77,6 +79,8 @@ export function AppRoutes() {
 					/>
 					<Route path="/projects/:projectId/roster/:roleName" component={ProjectRosterRoute} />
 					<Route path="/projects/:projectId/roster" component={ProjectRosterRoute} />
+					<Route path="/projects/:projectId/ralph/runs/:rootRunId" component={RalphRunRoute} />
+					<Route path="/projects/:projectId/ralph" component={RalphProjectRoute} />
 					<Route path="/projects/:projectId" component={ProjectDetailRoute} />
 					<Route path="/projects" component={ProjectsIndexRoute} />
 					<Route path="/plan" component={PlanModeRoute} />

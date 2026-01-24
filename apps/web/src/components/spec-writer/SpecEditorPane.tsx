@@ -6,8 +6,11 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
 import type { SpecDocument } from "@workboard/shared";
 import { basicSetup } from "codemirror";
-import { AlertTriangle, RefreshCw, Save } from "lucide-react";
+import { AlertTriangle, Code, Eye, FileText, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import {
 	type ParseDiagnostic,
 	type ScrollTarget,
@@ -28,13 +31,34 @@ type Props = {
 	onReload?: () => void;
 };
 
+// Feature flag: "editor" for CodeMirror, "renderer" for ReactMarkdown
+type ViewMode = "editor" | "renderer";
+
+function loadViewModePreference(): ViewMode {
+	try {
+		if (typeof window === "undefined") return "editor";
+		const raw = window.localStorage.getItem("specWriter.viewMode");
+		return raw === "renderer" ? "renderer" : "editor";
+	} catch {
+		return "editor";
+	}
+}
+
+function persistViewModePreference(value: ViewMode) {
+	try {
+		if (typeof window === "undefined") return;
+		window.localStorage.setItem("specWriter.viewMode", value);
+	} catch {
+		// ignore
+	}
+}
+
 // Debounce delay for parsing markdown changes (ms)
 const PARSE_DEBOUNCE_MS = 500;
 // Debounce delay for autosave after valid changes (ms)
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
 function computeSpecSignature(spec: SpecDocument): string {
-	// Stable representation for detecting content changes (ignore rev/metadata timestamps)
 	const sections = [...spec.sections]
 		.sort((a, b) => a.order - b.order)
 		.map((section) => ({
@@ -91,8 +115,10 @@ function computeSinglePatch(
 }
 
 /**
- * Center pane for viewing/editing spec content with CodeMirror 6.
- * Supports bidirectional sync between markdown editor and spec JSON.
+ * Center pane for viewing/editing spec content.
+ * Supports two modes:
+ * - "editor": CodeMirror markdown editor with bidirectional sync
+ * - "renderer": Read-only ReactMarkdown preview
  */
 export function SpecEditorPane({
 	workspaceId,
@@ -105,20 +131,24 @@ export function SpecEditorPane({
 	onSaveComplete,
 	onReload,
 }: Props) {
+	const [viewMode, setViewMode] = useState<ViewMode>(loadViewModePreference);
 	const [isSaving, setIsSaving] = useState(false);
 	const [saveError, setSaveError] = useState<{ message: string; status?: number } | null>(null);
 	const [diagnostics, setDiagnostics] = useState<ParseDiagnostic[]>([]);
 
-	// Refs for CodeMirror
-	const editorContainerRef = useRef<HTMLDivElement>(null);
+	// Refs for CodeMirror (mutable ref for callback ref pattern)
+	const editorContainerRef = useRef<HTMLDivElement | null>(null);
 	const editorViewRef = useRef<EditorView | null>(null);
+
+	// Ref for renderer scroll
+	const rendererRef = useRef<HTMLDivElement>(null);
 
 	// Track if we're syncing from external source to avoid feedback loops
 	const isSyncingFromExternalRef = useRef(false);
 	// Track the last spec ID to detect spec changes
 	const lastSpecIdRef = useRef<string | null>(null);
 
-	// Track if the most recent spec update originated from this editor (to avoid stomping user formatting)
+	// Track if the most recent spec update originated from this editor
 	const pendingEditorSpecUpdateRef = useRef(false);
 	const lastEditorDrivenSignatureRef = useRef<string | null>(null);
 	// Debounce timers
@@ -127,6 +157,17 @@ export function SpecEditorPane({
 	// Store current spec for use in callbacks
 	const specRef = useRef<SpecDocument | null>(null);
 	specRef.current = spec;
+
+	// Persist view mode preference
+	useEffect(() => {
+		persistViewModePreference(viewMode);
+	}, [viewMode]);
+
+	// Convert spec to markdown for renderer mode
+	const markdownContent = useMemo(() => {
+		if (!spec) return "";
+		return specToMarkdown(spec);
+	}, [spec]);
 
 	// Handle save
 	const handleSave = useCallback(async () => {
@@ -161,70 +202,7 @@ export function SpecEditorPane({
 	// Check if we have a 409 conflict
 	const isConflict = saveError?.status === 409;
 
-	// Parse markdown and update spec (debounced)
-	const parseAndUpdate = useCallback(
-		(markdownContent: string) => {
-			const currentSpec = specRef.current;
-			if (!currentSpec || isSyncingFromExternalRef.current) return;
-
-			const result = markdownToSpec(markdownContent, currentSpec);
-			setDiagnostics(result.diagnostics);
-
-			if (!result.success || !result.spec) {
-				// Parsing errors should pause autosave to avoid structural data loss.
-				if (autosaveTimerRef.current) {
-					window.clearTimeout(autosaveTimerRef.current);
-					autosaveTimerRef.current = null;
-				}
-				return;
-			}
-
-			// Merge parsed changes with existing spec
-			const updatedSpec: SpecDocument = {
-				...currentSpec,
-				title: result.spec.title ?? currentSpec.title,
-				overview: result.spec.overview ?? currentSpec.overview,
-				sections: result.spec.sections ?? currentSpec.sections,
-				metadata: {
-					...currentSpec.metadata,
-					updatedAt: Date.now(),
-				},
-			};
-
-			// Mark that the next spec update came from the editor so we don't overwrite the user's markdown formatting.
-			lastEditorDrivenSignatureRef.current = computeSpecSignature(updatedSpec);
-			pendingEditorSpecUpdateRef.current = true;
-
-			onSpecUpdate(updatedSpec);
-
-			// Schedule autosave
-			if (autosaveTimerRef.current) {
-				window.clearTimeout(autosaveTimerRef.current);
-			}
-			autosaveTimerRef.current = window.setTimeout(() => {
-				handleSave();
-			}, AUTOSAVE_DEBOUNCE_MS);
-		},
-		[onSpecUpdate, handleSave],
-	);
-
-	// Handle editor content changes
-	const handleEditorChange = useCallback(
-		(content: string) => {
-			if (isSyncingFromExternalRef.current) return;
-
-			// Debounce parsing
-			if (parseTimerRef.current) {
-				window.clearTimeout(parseTimerRef.current);
-			}
-			parseTimerRef.current = window.setTimeout(() => {
-				parseAndUpdate(content);
-			}, PARSE_DEBOUNCE_MS);
-		},
-		[parseAndUpdate],
-	);
-
-	// CodeMirror theme customization for terminal aesthetic
+	// CodeMirror theme customization
 	const editorTheme = useMemo(
 		() =>
 			EditorView.theme({
@@ -260,12 +238,133 @@ export function SpecEditorPane({
 		[],
 	);
 
-	// Initialize CodeMirror editor
-	// biome-ignore lint/correctness/useExhaustiveDependencies: editorTheme is stable (empty deps useMemo)
-	useEffect(() => {
-		if (!editorContainerRef.current || editorViewRef.current) return;
+	// Track container mount state to trigger editor creation
+	const [containerMounted, setContainerMounted] = useState(false);
 
-		const initialContent = spec ? specToMarkdown(spec) : "";
+	// Ref callback to detect when container is mounted
+	const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+		editorContainerRef.current = node;
+		setContainerMounted(!!node);
+	}, []);
+
+	// Stable refs for callbacks - allows effect to access latest without re-running
+	const onSpecUpdateRef = useRef(onSpecUpdate);
+	const onSaveCompleteRef = useRef(onSaveComplete);
+	const handleSaveRef = useRef(handleSave);
+	const workspaceIdRef = useRef(workspaceId);
+
+	// Keep refs updated
+	useEffect(() => {
+		onSpecUpdateRef.current = onSpecUpdate;
+		onSaveCompleteRef.current = onSaveComplete;
+		handleSaveRef.current = handleSave;
+		workspaceIdRef.current = workspaceId;
+	});
+
+	// Track spec ID separately to control when editor is recreated
+	const specId = spec?.id ?? null;
+
+	// Initialize/destroy CodeMirror editor based on view mode
+	// IMPORTANT: Only recreate editor when viewMode or specId changes, NOT on every spec update
+	useEffect(() => {
+		// Only create editor in editor mode
+		if (viewMode !== "editor") {
+			// Destroy existing editor if switching to renderer
+			if (editorViewRef.current) {
+				editorViewRef.current.destroy();
+				editorViewRef.current = null;
+			}
+			return;
+		}
+
+		// Wait for container to be mounted and spec to be loaded
+		if (!editorContainerRef.current || !specRef.current) {
+			return;
+		}
+
+		// If editor already exists, don't recreate (sync effect handles content updates)
+		if (editorViewRef.current) {
+			return;
+		}
+
+		const currentSpec = specRef.current;
+		const initialContent = specToMarkdown(currentSpec);
+
+		console.log("[SpecEditorPane] Creating CodeMirror editor", {
+			hasContainer: !!editorContainerRef.current,
+			containerDimensions: editorContainerRef.current
+				? {
+						width: editorContainerRef.current.offsetWidth,
+						height: editorContainerRef.current.offsetHeight,
+					}
+				: null,
+			specId: currentSpec.id,
+			specTitle: currentSpec.title,
+			contentLength: initialContent.length,
+		});
+
+		// Create update listener - uses refs to access latest values without causing effect re-runs
+		const updateListener = EditorView.updateListener.of((update) => {
+			if (update.docChanged) {
+				const content = update.state.doc.toString();
+				if (!isSyncingFromExternalRef.current) {
+					if (parseTimerRef.current) {
+						window.clearTimeout(parseTimerRef.current);
+					}
+					parseTimerRef.current = window.setTimeout(() => {
+						const latestSpec = specRef.current;
+						if (!latestSpec || isSyncingFromExternalRef.current) return;
+
+						const result = markdownToSpec(content, latestSpec);
+						setDiagnostics(result.diagnostics);
+
+						if (!result.success || !result.spec) {
+							if (autosaveTimerRef.current) {
+								window.clearTimeout(autosaveTimerRef.current);
+								autosaveTimerRef.current = null;
+							}
+							return;
+						}
+
+						const updatedSpec: SpecDocument = {
+							...latestSpec,
+							title: result.spec.title ?? latestSpec.title,
+							overview: result.spec.overview ?? latestSpec.overview,
+							sections: result.spec.sections ?? latestSpec.sections,
+							metadata: {
+								...latestSpec.metadata,
+								updatedAt: Date.now(),
+							},
+						};
+
+						lastEditorDrivenSignatureRef.current = computeSpecSignature(updatedSpec);
+						pendingEditorSpecUpdateRef.current = true;
+
+						onSpecUpdateRef.current(updatedSpec);
+
+						if (autosaveTimerRef.current) {
+							window.clearTimeout(autosaveTimerRef.current);
+						}
+						autosaveTimerRef.current = window.setTimeout(() => {
+							const specToSave = specRef.current;
+							if (specToSave) {
+								updateWorkspaceSpec(
+									workspaceIdRef.current,
+									specToSave.slug,
+									specToSave,
+									specToSave.rev,
+								)
+									.then((response) => onSaveCompleteRef.current(response.spec))
+									.catch((err) => {
+										const apiError = err as ApiClientError;
+										setSaveError({ message: apiError.message, status: apiError.status });
+									});
+							}
+						}, AUTOSAVE_DEBOUNCE_MS);
+					}, PARSE_DEBOUNCE_MS);
+				}
+			}
+		});
 
 		const view = new EditorView({
 			doc: initialContent,
@@ -274,17 +373,12 @@ export function SpecEditorPane({
 				markdown(),
 				oneDark,
 				editorTheme,
-				EditorView.updateListener.of((update) => {
-					if (update.docChanged) {
-						handleEditorChange(update.state.doc.toString());
-					}
-				}),
-				// Custom keybinding for save
+				updateListener,
 				keymap.of([
 					{
 						key: "Mod-s",
 						run: () => {
-							handleSave();
+							handleSaveRef.current();
 							return true;
 						},
 					},
@@ -295,31 +389,48 @@ export function SpecEditorPane({
 		});
 
 		editorViewRef.current = view;
-		lastSpecIdRef.current = spec?.id ?? null;
+		lastSpecIdRef.current = currentSpec.id;
+
+		console.log("[SpecEditorPane] CodeMirror editor created", {
+			docLength: view.state.doc.length,
+		});
 
 		return () => {
+			console.log("[SpecEditorPane] Destroying CodeMirror editor");
 			view.destroy();
 			editorViewRef.current = null;
 		};
-		// Only run once on mount - we handle spec changes separately
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+		// Only recreate editor when viewMode, specId, or container mount state changes
+		// biome-ignore lint/correctness/useExhaustiveDependencies: specId and containerMounted are intentional triggers
+	}, [viewMode, specId, containerMounted, editorTheme]);
 
-	// Sync editor content when spec changes (including chat mutations) while avoiding formatting feedback loops
+	// Sync editor content when spec changes (only in editor mode)
+	// IMPORTANT: Only update editor content when:
+	// 1. Spec ID changes (user selected a different spec)
+	// 2. Content changed externally (e.g., agent updated via API, NOT from our own save)
+	// Never update the editor for our own save roundtrips - this disrupts cursor position.
 	useEffect(() => {
+		if (viewMode !== "editor") return;
+
 		const view = editorViewRef.current;
-		if (!view || !spec) return;
+		if (!view || !spec) {
+			return;
+		}
 
 		const specIdChanged = lastSpecIdRef.current !== spec.id;
 		lastSpecIdRef.current = spec.id;
 
 		const incomingSignature = computeSpecSignature(spec);
-		const currentDoc = view.state.doc.toString();
-		const nextDoc = specToMarkdown(spec);
 
+		// Case 1: Different spec selected - full replacement is needed
 		if (specIdChanged) {
-			isSyncingFromExternalRef.current = true;
+			const nextDoc = specToMarkdown(spec);
+			console.log("[SpecEditorPane] Sync: spec ID changed, replacing content", {
+				newSpecId: spec.id,
+				contentLength: nextDoc.length,
+			});
 
+			isSyncingFromExternalRef.current = true;
 			view.dispatch({
 				changes: {
 					from: 0,
@@ -328,9 +439,7 @@ export function SpecEditorPane({
 				},
 			});
 
-			// Reset diagnostics on spec change
 			setDiagnostics([]);
-
 			lastEditorDrivenSignatureRef.current = incomingSignature;
 			pendingEditorSpecUpdateRef.current = false;
 
@@ -340,25 +449,39 @@ export function SpecEditorPane({
 			return;
 		}
 
-		// If this spec update was triggered by our own editor parse, don't overwrite the user's markdown formatting.
+		// Case 2: This update was triggered by our own edit - don't touch editor
 		if (pendingEditorSpecUpdateRef.current) {
+			console.log("[SpecEditorPane] Sync: skipping (pending editor update)");
 			pendingEditorSpecUpdateRef.current = false;
 			lastEditorDrivenSignatureRef.current = incomingSignature;
 			return;
 		}
 
-		// Ignore changes that don't affect the spec content (rev/metadata-only updates)
+		// Case 3: Signature matches what we last sent - this is our save roundtrip, skip
 		if (
 			lastEditorDrivenSignatureRef.current &&
 			lastEditorDrivenSignatureRef.current === incomingSignature
 		) {
+			console.log("[SpecEditorPane] Sync: skipping (signature unchanged)");
 			return;
 		}
 
+		// Case 4: Content changed externally (agent, another user, etc.) - need to sync
+		// Only update if semantic content actually changed
+		const nextDoc = specToMarkdown(spec);
+		const currentDoc = view.state.doc.toString();
+
 		if (currentDoc === nextDoc) {
+			// Markdown is identical, just update signature tracking
+			console.log("[SpecEditorPane] Sync: skipping (markdown identical)");
 			lastEditorDrivenSignatureRef.current = incomingSignature;
 			return;
 		}
+
+		console.log("[SpecEditorPane] Sync: external change detected, applying patch", {
+			oldSignature: lastEditorDrivenSignatureRef.current?.slice(0, 50),
+			newSignature: incomingSignature.slice(0, 50),
+		});
 
 		isSyncingFromExternalRef.current = true;
 
@@ -367,16 +490,15 @@ export function SpecEditorPane({
 			view.dispatch({ changes: patch });
 		}
 
-		// Reset diagnostics on external content change
 		setDiagnostics([]);
 		lastEditorDrivenSignatureRef.current = incomingSignature;
 
 		requestAnimationFrame(() => {
 			isSyncingFromExternalRef.current = false;
 		});
-	}, [spec]);
+	}, [spec, viewMode]);
 
-	// Keyboard shortcut for save (backup for non-editor focus)
+	// Keyboard shortcut for save
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -397,8 +519,10 @@ export function SpecEditorPane({
 		};
 	}, []);
 
-	// Handle scroll target from graph node clicks
+	// Handle scroll target from graph node clicks - editor mode
 	useEffect(() => {
+		if (viewMode !== "editor") return;
+
 		const view = editorViewRef.current;
 		if (!view || !scrollTarget || !spec) return;
 
@@ -406,21 +530,61 @@ export function SpecEditorPane({
 		const lineNum = findTargetLine(markdown, scrollTarget);
 
 		if (lineNum !== null) {
-			// Get the position at the start of the target line
 			const line = view.state.doc.line(lineNum);
 			const pos = line.from;
 
-			// Scroll to the line and highlight it briefly
 			view.dispatch({
 				selection: { anchor: pos, head: pos },
 				scrollIntoView: true,
 				effects: EditorView.scrollIntoView(pos, { y: "center" }),
 			});
 
-			// Focus the editor
 			view.focus();
 		}
-	}, [scrollTarget, spec]);
+	}, [scrollTarget, spec, viewMode]);
+
+	// Handle scroll target from graph node clicks - renderer mode
+	useEffect(() => {
+		if (viewMode !== "renderer") return;
+		if (!scrollTarget || !spec || !rendererRef.current) return;
+
+		let selector = "";
+		if (scrollTarget.type === "root") {
+			selector = "h1";
+		} else if (scrollTarget.type === "section") {
+			selector = "h2";
+		} else if (scrollTarget.type === "item") {
+			selector = "h3";
+		}
+
+		const elements = Array.from(rendererRef.current.querySelectorAll(selector));
+		for (const el of elements) {
+			const text = el.textContent || "";
+			if (
+				scrollTarget.type === "item" &&
+				text.toUpperCase().startsWith(scrollTarget.id.toUpperCase())
+			) {
+				el.scrollIntoView({ behavior: "smooth", block: "center" });
+				el.classList.add("bg-primary/20");
+				setTimeout(() => el.classList.remove("bg-primary/20"), 2000);
+				return;
+			}
+			if (scrollTarget.type === "section") {
+				const normalizedTarget = scrollTarget.id.toLowerCase().replace(/-/g, " ");
+				const normalizedText = text.toLowerCase().trim();
+				if (normalizedText === normalizedTarget || normalizedText.includes(normalizedTarget)) {
+					el.scrollIntoView({ behavior: "smooth", block: "center" });
+					el.classList.add("bg-primary/20");
+					setTimeout(() => el.classList.remove("bg-primary/20"), 2000);
+					return;
+				}
+			}
+			if (scrollTarget.type === "root") {
+				el.scrollIntoView({ behavior: "smooth", block: "start" });
+				return;
+			}
+		}
+	}, [scrollTarget, spec, viewMode]);
 
 	// Loading state
 	if (loading) {
@@ -464,6 +628,7 @@ export function SpecEditorPane({
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-border/30 flex-shrink-0">
 				<div className="flex items-center gap-2 min-w-0">
+					<FileText size={14} className="text-muted-foreground" />
 					<span className="text-sm font-mono font-medium truncate">{spec.title}</span>
 					{isDirty && (
 						<span className="text-warning text-xs" title="Unsaved changes">
@@ -474,6 +639,36 @@ export function SpecEditorPane({
 				</div>
 
 				<div className="flex items-center gap-2">
+					{/* View mode toggle */}
+					<div className="flex items-center border border-border/30 rounded">
+						<button
+							type="button"
+							onClick={() => setViewMode("editor")}
+							className={cn(
+								"p-1.5 transition-colors",
+								viewMode === "editor"
+									? "bg-primary/20 text-primary"
+									: "text-muted-foreground hover:text-foreground",
+							)}
+							title="Editor mode"
+						>
+							<Code size={12} />
+						</button>
+						<button
+							type="button"
+							onClick={() => setViewMode("renderer")}
+							className={cn(
+								"p-1.5 transition-colors",
+								viewMode === "renderer"
+									? "bg-primary/20 text-primary"
+									: "text-muted-foreground hover:text-foreground",
+							)}
+							title="Preview mode"
+						>
+							<Eye size={12} />
+						</button>
+					</div>
+
 					{saveError && !isConflict && (
 						<span className="text-xs font-mono text-destructive">{saveError.message}</span>
 					)}
@@ -490,16 +685,18 @@ export function SpecEditorPane({
 						</button>
 					)}
 
-					<button
-						type="button"
-						onClick={handleSave}
-						disabled={!isDirty || isSaving || isConflict || hasErrors}
-						className="flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-						title="Save (Cmd/Ctrl+S)"
-					>
-						<Save size={12} />
-						<span>{isSaving ? "saving..." : "save"}</span>
-					</button>
+					{viewMode === "editor" && (
+						<button
+							type="button"
+							onClick={handleSave}
+							disabled={!isDirty || isSaving || isConflict || hasErrors}
+							className="flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							title="Save (Cmd/Ctrl+S)"
+						>
+							<Save size={12} />
+							<span>{isSaving ? "saving..." : "save"}</span>
+						</button>
+					)}
 				</div>
 			</div>
 
@@ -524,8 +721,8 @@ export function SpecEditorPane({
 				</div>
 			)}
 
-			{/* Parse diagnostics banner */}
-			{(hasErrors || hasWarnings) && (
+			{/* Parse diagnostics banner - only in editor mode */}
+			{viewMode === "editor" && (hasErrors || hasWarnings) && (
 				<div
 					className={cn(
 						"flex items-start gap-2 px-4 py-2 border-b text-xs font-mono",
@@ -551,8 +748,40 @@ export function SpecEditorPane({
 				</div>
 			)}
 
-			{/* CodeMirror Editor */}
-			<div ref={editorContainerRef} className="flex-1 min-h-0 overflow-hidden" />
+			{/* Content area - switches between editor and renderer */}
+			{viewMode === "editor" ? (
+				<div ref={setContainerRef} className="flex-1 min-h-0 overflow-hidden" />
+			) : (
+				<div ref={rendererRef} className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+					<div
+						className={cn(
+							"max-w-none font-mono text-sm",
+							"[&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:border-b [&_h1]:border-border/30 [&_h1]:pb-2 [&_h1]:mb-4",
+							"[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-primary [&_h2]:mt-6 [&_h2]:mb-3",
+							"[&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground/90 [&_h3]:mt-4 [&_h3]:mb-2",
+							"[&_p]:text-muted-foreground [&_p]:leading-relaxed [&_p]:mb-3",
+							"[&_strong]:text-foreground [&_strong]:font-semibold",
+							"[&_em]:text-muted-foreground/80 [&_em]:italic",
+							"[&_code]:text-primary [&_code]:bg-secondary/50 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs",
+							"[&_pre]:bg-secondary/30 [&_pre]:border [&_pre]:border-border/30 [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:mb-4",
+							"[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+							"[&_ul]:text-muted-foreground [&_ul]:ml-4 [&_ul]:mb-3 [&_ul]:list-disc",
+							"[&_ol]:text-muted-foreground [&_ol]:ml-4 [&_ol]:mb-3 [&_ol]:list-decimal",
+							"[&_li]:mb-1 [&_li]:marker:text-primary/50",
+							"[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-primary/80",
+							"[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground/80 [&_blockquote]:italic [&_blockquote]:mb-3",
+							"[&_table]:w-full [&_table]:mb-4 [&_table]:text-xs",
+							"[&_th]:text-left [&_th]:text-muted-foreground [&_th]:font-semibold [&_th]:pb-2 [&_th]:border-b [&_th]:border-border/30",
+							"[&_td]:py-2 [&_td]:text-muted-foreground [&_td]:border-b [&_td]:border-border/20",
+							"[&_h1]:transition-colors [&_h2]:transition-colors [&_h3]:transition-colors",
+						)}
+					>
+						<ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+							{markdownContent}
+						</ReactMarkdown>
+					</div>
+				</div>
+			)}
 
 			{/* Footer status bar */}
 			<div className="flex items-center justify-between px-4 py-1.5 border-t border-border/20 bg-secondary/20 flex-shrink-0">

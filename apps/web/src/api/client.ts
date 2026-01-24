@@ -59,6 +59,13 @@ const runSummarySchema = z.object({
 	createdAt: z.number(),
 	completedAt: z.number().optional(),
 	inputPreview: z.string().optional(),
+	workItemId: z.string().optional(),
+	kind: z.string().optional(),
+	roleName: z.string().optional(),
+	agentId: z.string().optional(),
+	parentRunId: z.string().optional(),
+	workspaceId: z.string().optional(),
+	lastHeartbeatAt: z.number().optional(),
 });
 
 const runListSchema = z.object({
@@ -110,6 +117,7 @@ export type StartDetachedRunRequest = {
 		backendKind?: "agent-sdk-session" | "agent-sdk" | "mock" | "playback" | "pi" | "asp";
 		sessionId?: string;
 		model?: "haiku" | "sonnet" | "opus" | "opus-4-5";
+		aspTargetName?: string;
 	};
 	maxTurns?: number;
 };
@@ -1017,10 +1025,19 @@ export async function updateWorkspaceSpec(
 	headers.set("x-wrkq-actor", WRKQ_ACTOR);
 	headers.set("If-Match", `"${rev}"`);
 
+	// Extract flat fields for UpdateSpecRequest schema
+	// (backend expects { title, version, overview, sections, sessionId }, not nested { spec })
+	// Send empty string to clear sessionId (backend stores null when receiving "")
 	const response = await fetch(url, {
 		method: "PUT",
 		headers,
-		body: JSON.stringify({ spec }),
+		body: JSON.stringify({
+			title: spec.title,
+			version: spec.version,
+			overview: spec.overview,
+			sections: spec.sections,
+			sessionId: spec.metadata.sessionId || "",
+		}),
 	});
 
 	const payload = await parseJsonSafe(response);
@@ -1273,6 +1290,247 @@ export function fetchProjectRuns(
 	const params = new URLSearchParams();
 	params.set("projectId", projectId);
 	if (sessionId) params.set("sessionId", sessionId);
+	const url = `/admin/runs?${params.toString()}`;
+	return fetchAndValidate(url, runListSchema, { signal });
+}
+
+// =============================================================================
+// Ralph (Agentic Spec Loop)
+// =============================================================================
+
+const ralphConfigV1Schema = z
+	.object({
+		v: z.literal(1),
+		enabled: z.boolean().default(true),
+		plannerRoleName: z.string().min(1),
+		builderRoleName: z.string().min(1),
+		sessionPolicy: z.enum(["resume-or-new", "new"]).default("resume-or-new"),
+		maxIterations: z.number().int().positive().default(25),
+		maxConsecutiveFailures: z.number().int().positive().default(3),
+		tickIntervalMs: z.number().int().positive().default(1500),
+		report: z
+			.object({ tag: z.string().min(1).default("RALPH_REPORT") })
+			.default({ tag: "RALPH_REPORT" }),
+		spec: z
+			.object({
+				materialize: z.boolean().default(true),
+				dir: z.string().min(1).default("specs"),
+			})
+			.default({ materialize: true, dir: "specs" }),
+		artifacts: z
+			.object({
+				implementationPlanPath: z.string().min(1).default("IMPLEMENTATION_PLAN.md"),
+				agentsMdPath: z.string().min(1).default("AGENTS.md"),
+			})
+			.default({ implementationPlanPath: "IMPLEMENTATION_PLAN.md", agentsMdPath: "AGENTS.md" }),
+		prompts: z.object({
+			plan: z.string().min(1),
+			build: z.string().min(1),
+		}),
+	})
+	.passthrough();
+
+const ralphProjectConfigRecordSchema = z
+	.object({
+		projectId: z.string(),
+		rev: z.number(),
+		config: ralphConfigV1Schema,
+		createdAt: z.number(),
+		updatedAt: z.number(),
+	})
+	.passthrough();
+
+const ralphRunRecordSchema = z
+	.object({
+		rootRunId: z.string(),
+		projectId: z.string(),
+		specSlug: z.string(),
+		specRev: z.number(),
+		mode: z.enum(["auto", "plan", "build"]),
+		status: z.enum([
+			"queued",
+			"running",
+			"pausing",
+			"paused",
+			"cancelling",
+			"cancelled",
+			"completed",
+			"failed",
+		]),
+		requestedBy: z.string().optional(),
+		configSnapshot: ralphConfigV1Schema,
+		state: z.record(z.unknown()),
+		createdAt: z.number(),
+		updatedAt: z.number(),
+		completedAt: z.number().optional(),
+	})
+	.passthrough();
+
+const ralphIterationRecordSchema = z
+	.object({
+		iterationId: z.string(),
+		rootRunId: z.string(),
+		iterationIndex: z.number(),
+		stepKind: z.enum(["plan", "build"]),
+		runId: z.string(),
+		sessionId: z.string().optional(),
+		roleName: z.string().optional(),
+		agentId: z.string().optional(),
+		status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
+		report: z.record(z.unknown()).optional(),
+		error: z.record(z.unknown()).optional(),
+		createdAt: z.number(),
+		updatedAt: z.number(),
+		completedAt: z.number().optional(),
+	})
+	.passthrough();
+
+const ralphRunListResponseSchema = z.object({
+	runs: z.array(ralphRunRecordSchema),
+});
+
+const ralphRunDetailResponseSchema = z.object({
+	run: ralphRunRecordSchema,
+	iterations: z.array(ralphIterationRecordSchema),
+});
+
+const ralphIterationsResponseSchema = z.object({
+	iterations: z.array(ralphIterationRecordSchema),
+});
+
+export type RalphConfigV1 = z.infer<typeof ralphConfigV1Schema>;
+export type RalphProjectConfigRecord = z.infer<typeof ralphProjectConfigRecordSchema>;
+export type RalphRunRecord = z.infer<typeof ralphRunRecordSchema>;
+export type RalphIterationRecord = z.infer<typeof ralphIterationRecordSchema>;
+export type RalphRunDetailResponse = z.infer<typeof ralphRunDetailResponseSchema>;
+
+export function fetchRalphConfig(
+	projectId: string,
+	signal?: AbortSignal,
+): Promise<RalphProjectConfigRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/config`,
+		ralphProjectConfigRecordSchema,
+		{ signal },
+	);
+}
+
+export function updateRalphConfig(
+	projectId: string,
+	expectedRev: number,
+	config: RalphConfigV1,
+): Promise<RalphProjectConfigRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/config`,
+		ralphProjectConfigRecordSchema,
+		{
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				"if-match": String(expectedRev),
+			},
+			body: JSON.stringify(config),
+		},
+	);
+}
+
+export function resetRalphConfig(projectId: string): Promise<RalphProjectConfigRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/config/reset`,
+		ralphProjectConfigRecordSchema,
+		{ method: "POST" },
+	);
+}
+
+export function startRalphRun(
+	projectId: string,
+	request: { specSlug: string; mode?: "auto" | "plan" | "build"; startStep?: "plan" | "build" },
+): Promise<RalphRunRecord> {
+	return fetchAndValidate(`/admin/projects/${projectId}/ralph/runs`, ralphRunRecordSchema, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(request),
+	});
+}
+
+export function fetchRalphRuns(
+	projectId: string,
+	options?: { status?: string; limit?: number; offset?: number },
+	signal?: AbortSignal,
+): Promise<{ runs: RalphRunRecord[] }> {
+	const params = new URLSearchParams();
+	if (options?.status) params.set("status", options.status);
+	if (options?.limit !== undefined) params.set("limit", String(options.limit));
+	if (options?.offset !== undefined) params.set("offset", String(options.offset));
+	const qs = params.toString();
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs${qs ? `?${qs}` : ""}`,
+		ralphRunListResponseSchema,
+		{ signal },
+	);
+}
+
+export function fetchRalphRunDetail(
+	projectId: string,
+	rootRunId: string,
+	signal?: AbortSignal,
+): Promise<RalphRunDetailResponse> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs/${rootRunId}`,
+		ralphRunDetailResponseSchema,
+		{ signal },
+	);
+}
+
+export function fetchRalphIterations(
+	projectId: string,
+	rootRunId: string,
+	options?: { limit?: number; offset?: number },
+	signal?: AbortSignal,
+): Promise<{ iterations: RalphIterationRecord[] }> {
+	const params = new URLSearchParams();
+	if (options?.limit !== undefined) params.set("limit", String(options.limit));
+	if (options?.offset !== undefined) params.set("offset", String(options.offset));
+	const qs = params.toString();
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs/${rootRunId}/iterations${qs ? `?${qs}` : ""}`,
+		ralphIterationsResponseSchema,
+		{ signal },
+	);
+}
+
+export function pauseRalphRun(projectId: string, rootRunId: string): Promise<RalphRunRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs/${rootRunId}/pause`,
+		ralphRunRecordSchema,
+		{ method: "POST" },
+	);
+}
+
+export function resumeRalphRun(projectId: string, rootRunId: string): Promise<RalphRunRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs/${rootRunId}/resume`,
+		ralphRunRecordSchema,
+		{ method: "POST" },
+	);
+}
+
+export function cancelRalphRun(projectId: string, rootRunId: string): Promise<RalphRunRecord> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/runs/${rootRunId}/cancel`,
+		ralphRunRecordSchema,
+		{ method: "POST" },
+	);
+}
+
+export function fetchProjectRunsByParentRunId(
+	projectId: string,
+	parentRunId: string,
+	signal?: AbortSignal,
+): Promise<RunListResponse> {
+	const params = new URLSearchParams();
+	params.set("projectId", projectId);
+	params.set("parentRunId", parentRunId);
 	const url = `/admin/runs?${params.toString()}`;
 	return fetchAndValidate(url, runListSchema, { signal });
 }

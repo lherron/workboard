@@ -262,7 +262,7 @@ export function ProjectDetailRoute() {
 						<h2 className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/80 mb-4">
 							Navigate
 						</h2>
-						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 							<FeatureCard
 								title="Agent Roster"
 								description="View and interact with project agents"
@@ -295,6 +295,14 @@ export function ProjectDetailRoute() {
 								href={`/projects/${projectId}/work-items`}
 								accent="orange"
 								stat={`${data.runs.length} runs`}
+							/>
+							<FeatureCard
+								title="Ralph"
+								description="Spec loop runner (plan/build iterations)"
+								icon={<RalphIcon />}
+								href={`/projects/${projectId}/ralph`}
+								accent="cyan"
+								stat="runs + config"
 							/>
 						</div>
 					</section>
@@ -880,6 +888,29 @@ function RunsIcon() {
 			strokeWidth="1.5"
 		>
 			<polygon points="5 3 19 12 5 21 5 3" />
+		</svg>
+	);
+}
+
+function RalphIcon() {
+	return (
+		<svg
+			width="20"
+			height="20"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		>
+			<path d="M12 2v4" />
+			<path d="M12 18v4" />
+			<path d="M4.93 4.93l2.83 2.83" />
+			<path d="M16.24 16.24l2.83 2.83" />
+			<path d="M2 12h4" />
+			<path d="M18 12h4" />
+			<path d="M4.93 19.07l2.83-2.83" />
+			<path d="M16.24 7.76l2.83-2.83" />
+			<circle cx="12" cy="12" r="4" />
 		</svg>
 	);
 }

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, ChevronUp, Network, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Network, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SpecChatPane } from "./SpecChatPane";
 import { SpecEditorPane } from "./SpecEditorPane";
@@ -34,6 +34,9 @@ export function SpecWriterLayout({ workspaceId, specSlug }: Props) {
 
 	// Graph pane visibility
 	const [showGraph, setShowGraph] = useState(true);
+
+	// Left nav pane collapsed state
+	const [leftPaneCollapsed, setLeftPaneCollapsed] = useState(false);
 
 	// Scroll target for graph-to-editor navigation
 	const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null);
@@ -100,22 +103,54 @@ export function SpecWriterLayout({ workspaceId, specSlug }: Props) {
 				</div>
 			)}
 
-			{/* Left Nav Panel (~20%) */}
-			<aside className="w-[280px] min-w-[240px] border-r border-border/50 bg-secondary/40 flex-shrink-0 flex flex-col">
-				<SpecNavPanel
-					workspaceId={workspaceId}
-					specs={specListState.specs}
-					loading={specListState.loading}
-					error={specListState.error}
-					selectedSlug={specSlug}
-					isDirty={specState.isDirty}
-					isCreating={isCreating}
-					onSelectSpec={handleSelectSpec}
-					onCreateSpec={handleCreateSpec}
-					onDeleteSpec={handleDeleteSpec}
-					onCopyMarkdown={handleCopyMarkdown}
-					onRetry={() => loadSpecList()}
-				/>
+			{/* Left Nav Panel (collapsible) */}
+			<aside
+				className={cn(
+					"border-r border-border/50 bg-secondary/40 flex-shrink-0 flex flex-col transition-all duration-200",
+					leftPaneCollapsed ? "w-[40px]" : "w-[280px] min-w-[240px]",
+				)}
+			>
+				{leftPaneCollapsed ? (
+					// Collapsed state - just show expand button
+					<div className="flex flex-col items-center pt-2">
+						<button
+							type="button"
+							onClick={() => setLeftPaneCollapsed(false)}
+							className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded transition-colors"
+							title="Expand sidebar"
+						>
+							<ChevronRight size={16} />
+						</button>
+					</div>
+				) : (
+					// Expanded state - show full nav panel with collapse button
+					<>
+						<div className="flex items-center justify-end px-2 py-1 border-b border-border/30">
+							<button
+								type="button"
+								onClick={() => setLeftPaneCollapsed(true)}
+								className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded transition-colors"
+								title="Collapse sidebar"
+							>
+								<ChevronLeft size={14} />
+							</button>
+						</div>
+						<SpecNavPanel
+							workspaceId={workspaceId}
+							specs={specListState.specs}
+							loading={specListState.loading}
+							error={specListState.error}
+							selectedSlug={specSlug}
+							isDirty={specState.isDirty}
+							isCreating={isCreating}
+							onSelectSpec={handleSelectSpec}
+							onCreateSpec={handleCreateSpec}
+							onDeleteSpec={handleDeleteSpec}
+							onCopyMarkdown={handleCopyMarkdown}
+							onRetry={() => loadSpecList()}
+						/>
+					</>
+				)}
 			</aside>
 
 			{/* Center Pane: Graph + Editor (~50%) */}
@@ -162,13 +197,11 @@ export function SpecWriterLayout({ workspaceId, specSlug }: Props) {
 			</main>
 
 			{/* Right Chat Pane (~30%) */}
-			<aside className="w-[340px] min-w-[280px] border-l border-border/50 bg-secondary/20 flex-shrink-0 hidden xl:flex flex-col">
+			<aside className="w-[680px] min-w-[560px] border-l border-border/50 bg-secondary/20 flex-shrink-0 hidden xl:flex flex-col">
 				<SpecChatPane
 					workspaceId={workspaceId}
 					spec={specState.spec}
 					onSpecUpdate={handleSpecUpdate}
-					onSaveComplete={handleSaveComplete}
-					onConflict={handleReload}
 				/>
 			</aside>
 		</div>

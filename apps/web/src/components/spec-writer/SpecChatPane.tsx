@@ -7,29 +7,20 @@
  * - useAutoScroll for auto-scrolling
  * - groupEventsByRun for event organization
  *
- * Adds spec-specific mutation handling (apply/discard/undo).
+ * The architect agent updates specs directly via the Control Plane API.
+ * This component handles session management and displays the conversation.
  */
 
+import { launchTerminal, updateWorkspaceSpec } from "@/api/client";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { RunCard } from "@/components/chat/RunCard";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { detectLiveRun, groupEventsByRun } from "@/lib/chat";
 import { cn, debugLog } from "@/lib/utils";
 import type { SpecDocument } from "@workboard/shared";
-import {
-	AlertTriangle,
-	CheckCircle,
-	Loader2,
-	Radio,
-	RefreshCw,
-	Undo2,
-	Wifi,
-	WifiOff,
-	XCircle,
-	Zap,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { type MutationStatus, useArchitectChat } from "./hooks/useArchitectChat";
+import { Loader2, MessageSquarePlus, Radio, Terminal, Wifi, WifiOff } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useArchitectChat } from "./hooks/useArchitectChat";
 
 const THEME_COLOR = "#22d3ee"; // cyan for architect
 
@@ -37,136 +28,19 @@ type Props = {
 	workspaceId: string;
 	spec: SpecDocument | null;
 	onSpecUpdate: (spec: SpecDocument) => void;
-	onSaveComplete: (spec: SpecDocument) => void;
-	onConflict?: () => void;
 };
-
-function loadAutoApplyPreference(): boolean {
-	try {
-		if (typeof window === "undefined") return false;
-		const raw = window.localStorage.getItem("specWriter.autoApplyMutations");
-		return raw === "true";
-	} catch {
-		return false;
-	}
-}
-
-function persistAutoApplyPreference(value: boolean) {
-	try {
-		if (typeof window === "undefined") return;
-		window.localStorage.setItem("specWriter.autoApplyMutations", value ? "true" : "false");
-	} catch {
-		// ignore
-	}
-}
-
-/**
- * Mutation actions component - shown below RunCard when mutations are available
- */
-function MutationActions({
-	mutationCount,
-	status,
-	onApply,
-	onDiscard,
-}: {
-	mutationCount: number;
-	status: MutationStatus;
-	onApply: () => void;
-	onDiscard: () => void;
-}) {
-	return (
-		<div className="flex items-center gap-2 mt-2 ml-2 text-[10px] font-mono">
-			{status.state === "saved" ? (
-				<span className="flex items-center gap-1 text-emerald-400">
-					<CheckCircle size={10} />
-					<span>
-						{mutationCount} mutation{mutationCount !== 1 ? "s" : ""} applied
-					</span>
-				</span>
-			) : status.state === "applying" ? (
-				<span className="flex items-center gap-1 text-cyan-400">
-					<Loader2 size={10} className="animate-spin" />
-					<span>applying…</span>
-				</span>
-			) : status.state === "discarded" ? (
-				<span className="flex items-center gap-1 text-slate-500">
-					<XCircle size={10} />
-					<span>discarded</span>
-				</span>
-			) : status.state === "error" ? (
-				<span className="flex items-center gap-1 text-red-400" title={status.error}>
-					<AlertTriangle size={10} />
-					<span>error</span>
-				</span>
-			) : (
-				<>
-					<span className="flex items-center gap-1 text-amber-400">
-						<Zap size={10} />
-						<span>
-							{mutationCount} mutation{mutationCount !== 1 ? "s" : ""} proposed
-						</span>
-					</span>
-					<button
-						type="button"
-						onClick={onApply}
-						className="px-1.5 py-0.5 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 transition-colors"
-					>
-						apply
-					</button>
-					<button
-						type="button"
-						onClick={onDiscard}
-						className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:bg-slate-700/60 transition-colors"
-					>
-						discard
-					</button>
-				</>
-			)}
-		</div>
-	);
-}
 
 /**
  * Right pane for architect chat interface.
- * Maintains session continuity and can apply spec mutations.
+ * Maintains session continuity - agent updates specs directly via API.
  */
-export function SpecChatPane({
-	workspaceId,
-	spec,
-	onSpecUpdate,
-	onSaveComplete,
-	onConflict,
-}: Props) {
-	const [autoApply, setAutoApply] = useState(loadAutoApplyPreference);
-
-	const {
-		entries,
-		runs,
-		isConnected,
-		isConnecting,
-		error,
-		mutationError,
-		sendMessage,
-		isSending,
-		applyMutationsForKey,
-		discardMutationsForKey,
-		canUndo,
-		undoLastApplied,
-		clearMutationError,
-		getMutationsForRun,
-	} = useArchitectChat({
-		workspaceId,
-		spec,
-		onSpecUpdate,
-		onSaveComplete,
-		onConflict,
-		autoApplyMutations: autoApply,
-	});
-
-	// Persist preference
-	useEffect(() => {
-		persistAutoApplyPreference(autoApply);
-	}, [autoApply]);
+export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
+	const { entries, runs, isConnected, isConnecting, error, sendMessage, isSending } =
+		useArchitectChat({
+			workspaceId,
+			spec,
+			onSpecUpdate,
+		});
 
 	// Group events by run (like ConciergePanel)
 	const runGroups = useMemo(() => groupEventsByRun(entries, runs), [entries, runs]);
@@ -208,6 +82,87 @@ export function SpecChatPane({
 		[isSending, hasLiveRun, scrollToBottom, sendMessage],
 	);
 
+	// Terminal launch state
+	const [isLaunchingTerminal, setIsLaunchingTerminal] = useState(false);
+
+	// New chat loading state
+	const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
+
+	// Handle opening terminal to resume session
+	const handleOpenTerminal = useCallback(async () => {
+		if (!spec?.metadata.sessionId || hasLiveRun) return;
+
+		setIsLaunchingTerminal(true);
+		try {
+			await launchTerminal({
+				projectId: workspaceId,
+				tool: {
+					kind: "shell",
+					command: `asp run architect --resume ${spec.metadata.sessionId}`,
+				},
+				statusbar: {
+					right: `architect@${workspaceId}`,
+				},
+				foregroundColor: "#cffafe",
+				backgroundColor: "#0a1a1a",
+			});
+		} catch (err) {
+			console.error("[SpecChatPane] Failed to open terminal:", err);
+		} finally {
+			setIsLaunchingTerminal(false);
+		}
+	}, [workspaceId, spec?.metadata.sessionId, hasLiveRun]);
+
+	// Handle new chat (clear session from spec)
+	const handleNewChat = useCallback(async () => {
+		debugLog("[SpecChatPane]", "handleNewChat called", {
+			hasSpec: !!spec,
+			hasLiveRun,
+			isSending,
+			isCreatingNewChat,
+			sessionId: spec?.metadata.sessionId,
+		});
+
+		if (!spec || !spec.metadata.sessionId || hasLiveRun || isSending || isCreatingNewChat) {
+			debugLog("[SpecChatPane]", "handleNewChat early return", {
+				noSpec: !spec,
+				noSession: !spec?.metadata.sessionId,
+				hasLiveRun,
+				isSending,
+				isCreatingNewChat,
+			});
+			return;
+		}
+
+		setIsCreatingNewChat(true);
+		try {
+			const updatedSpec: SpecDocument = {
+				...spec,
+				metadata: {
+					...spec.metadata,
+					sessionId: null,
+					updatedAt: Date.now(),
+				},
+			};
+			debugLog("[SpecChatPane]", "Clearing session, calling updateWorkspaceSpec", {
+				workspaceId,
+				slug: spec.slug,
+				rev: spec.rev,
+			});
+			// Update via API
+			const response = await updateWorkspaceSpec(workspaceId, spec.slug, updatedSpec, spec.rev);
+			debugLog("[SpecChatPane]", "Session cleared successfully", {
+				newRev: response.spec.rev,
+				newSessionId: response.spec.metadata.sessionId,
+			});
+			onSpecUpdate(response.spec);
+		} catch (err) {
+			console.error("[SpecChatPane] Failed to clear session:", err);
+		} finally {
+			setIsCreatingNewChat(false);
+		}
+	}, [spec, workspaceId, hasLiveRun, isSending, isCreatingNewChat, onSpecUpdate]);
+
 	// No spec selected
 	if (!spec) {
 		return (
@@ -245,34 +200,42 @@ export function SpecChatPane({
 						</span>
 					)}
 
-					{/* Undo button */}
+					{/* Terminal button - resume session in Claude Code */}
+					{hasSession && (
+						<button
+							onClick={handleOpenTerminal}
+							disabled={hasLiveRun || isLaunchingTerminal}
+							className={cn(
+								"p-1.5 rounded transition-colors",
+								"text-slate-500 hover:text-cyan-400 hover:bg-slate-800",
+								"disabled:opacity-40 disabled:cursor-not-allowed",
+							)}
+							title="Resume in terminal"
+						>
+							{isLaunchingTerminal ? (
+								<Loader2 className="w-4 h-4 animate-spin" />
+							) : (
+								<Terminal className="w-4 h-4" />
+							)}
+						</button>
+					)}
+
+					{/* New chat button */}
 					<button
-						type="button"
-						onClick={() => void undoLastApplied()}
-						disabled={!canUndo}
+						onClick={handleNewChat}
+						disabled={!hasSession || hasLiveRun || isSending || isCreatingNewChat}
 						className={cn(
 							"p-1.5 rounded transition-colors",
 							"text-slate-500 hover:text-cyan-400 hover:bg-slate-800",
 							"disabled:opacity-40 disabled:cursor-not-allowed",
 						)}
-						title="Undo last applied mutation"
+						title="New chat"
 					>
-						<Undo2 className="w-4 h-4" />
-					</button>
-
-					{/* Auto-apply toggle */}
-					<button
-						type="button"
-						onClick={() => setAutoApply((v) => !v)}
-						className={cn(
-							"p-1.5 rounded transition-colors",
-							autoApply
-								? "text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20"
-								: "text-slate-500 hover:text-slate-300 hover:bg-slate-800",
+						{isCreatingNewChat ? (
+							<Loader2 className="w-4 h-4 animate-spin" />
+						) : (
+							<MessageSquarePlus className="w-4 h-4" />
 						)}
-						title={autoApply ? "Auto-apply: ON" : "Auto-apply: OFF"}
-					>
-						<Zap className="w-4 h-4" />
 					</button>
 				</div>
 			</div>
@@ -332,31 +295,17 @@ export function SpecChatPane({
 				) : (
 					// Event timeline
 					<div className="space-y-1">
-						{runGroups.map((group, groupIndex) => {
-							const mutationInfo = getMutationsForRun(group.runId);
-
-							return (
-								<div key={`${group.runId}-${groupIndex}`}>
-									<RunCard
-										run={group.run}
-										runId={group.runId}
-										events={group.events}
-										themeColor={THEME_COLOR}
-										isFirst={groupIndex === 0}
-									/>
-
-									{/* Mutation actions (if this run has mutations) */}
-									{mutationInfo && (
-										<MutationActions
-											mutationCount={mutationInfo.mutations.length}
-											status={mutationInfo.status}
-											onApply={() => void applyMutationsForKey(mutationInfo.mutationKey)}
-											onDiscard={() => discardMutationsForKey(mutationInfo.mutationKey)}
-										/>
-									)}
-								</div>
-							);
-						})}
+						{runGroups.map((group, groupIndex) => (
+							<div key={`${group.runId}-${groupIndex}`}>
+								<RunCard
+									run={group.run}
+									runId={group.runId}
+									events={group.events}
+									themeColor={THEME_COLOR}
+									isFirst={groupIndex === 0}
+								/>
+							</div>
+						))}
 
 						{/* Live indicator at bottom */}
 						{hasLiveRun && (
@@ -372,51 +321,6 @@ export function SpecChatPane({
 				{error && (
 					<div className="mt-4 p-3 rounded border border-red-500/30 bg-red-500/5">
 						<p className="text-[10px] text-red-400 font-mono">{error.message}</p>
-					</div>
-				)}
-
-				{/* Mutation save error display */}
-				{mutationError && (
-					<div
-						className={cn(
-							"mt-4 p-3 rounded border flex items-start gap-2",
-							mutationError.isConflict
-								? "border-amber-500/30 bg-amber-500/5"
-								: "border-red-500/30 bg-red-500/5",
-						)}
-					>
-						<AlertTriangle
-							size={14}
-							className={cn(
-								"shrink-0 mt-0.5",
-								mutationError.isConflict ? "text-amber-400" : "text-red-400",
-							)}
-						/>
-						<div className="flex-1 min-w-0">
-							<p
-								className={cn(
-									"text-[10px] font-mono",
-									mutationError.isConflict ? "text-amber-400" : "text-red-400",
-								)}
-							>
-								{mutationError.isConflict
-									? "Changes were not saved - spec was modified externally."
-									: mutationError.message}
-							</p>
-							{mutationError.isConflict && onConflict && (
-								<button
-									type="button"
-									onClick={() => {
-										clearMutationError();
-										onConflict();
-									}}
-									className="flex items-center gap-1 mt-2 px-2 py-0.5 text-[9px] font-mono bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 transition-colors"
-								>
-									<RefreshCw size={10} />
-									<span>Reload</span>
-								</button>
-							)}
-						</div>
 					</div>
 				)}
 			</div>

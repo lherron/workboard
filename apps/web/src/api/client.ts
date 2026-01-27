@@ -1305,7 +1305,8 @@ const ralphConfigV1Schema = z
 		plannerRoleName: z.string().min(1),
 		builderRoleName: z.string().min(1),
 		sessionPolicy: z.enum(["resume-or-new", "new"]).default("resume-or-new"),
-		maxIterations: z.number().int().positive().default(25),
+		maxPlanIterations: z.number().int().nonnegative().default(10),
+		maxBuildIterations: z.number().int().nonnegative().default(25),
 		maxConsecutiveFailures: z.number().int().positive().default(3),
 		tickIntervalMs: z.number().int().positive().default(1500),
 		report: z
@@ -1439,6 +1440,35 @@ export function resetRalphConfig(projectId: string): Promise<RalphProjectConfigR
 		`/admin/projects/${projectId}/ralph/config/reset`,
 		ralphProjectConfigRecordSchema,
 		{ method: "POST" },
+	);
+}
+
+const ralphPreflightCheckSchema = z.object({
+	id: z.string(),
+	label: z.string(),
+	status: z.enum(["pass", "fail", "warn"]),
+	message: z.string().optional(),
+	fix: z
+		.object({
+			endpoint: z.string(),
+			method: z.string().optional(),
+			body: z.record(z.unknown()).optional(),
+		})
+		.optional(),
+});
+
+const ralphPreflightResponseSchema = z.object({
+	ready: z.boolean(),
+	checks: z.array(ralphPreflightCheckSchema),
+});
+
+export type RalphPreflightCheck = z.infer<typeof ralphPreflightCheckSchema>;
+export type RalphPreflightResponse = z.infer<typeof ralphPreflightResponseSchema>;
+
+export function fetchRalphPreflight(projectId: string): Promise<RalphPreflightResponse> {
+	return fetchAndValidate(
+		`/admin/projects/${projectId}/ralph/preflight`,
+		ralphPreflightResponseSchema,
 	);
 }
 

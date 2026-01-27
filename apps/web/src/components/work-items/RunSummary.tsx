@@ -12,7 +12,7 @@ import {
 	resolveLocalFileUrl,
 	summarizeToolInput,
 } from "@/session-events";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 type RunSummaryProps = {
@@ -195,6 +195,16 @@ function ToolItem({ tool, nested = false }: { tool: TranscriptToolCall; nested?:
 }
 
 /**
+ * Get the last child tool hint for a collapsed Task.
+ */
+function getLastChildToolHint(childTools: TranscriptToolCall[]): string | null {
+	if (childTools.length === 0) return null;
+	const lastTool = childTools[childTools.length - 1];
+	const inputSummary = summarizeToolInput(lastTool.input);
+	return inputSummary ? `${lastTool.toolName}: ${inputSummary}` : lastTool.toolName;
+}
+
+/**
  * Collapsible Task tool with nested child tools.
  */
 function CollapsibleTaskTool({
@@ -204,13 +214,19 @@ function CollapsibleTaskTool({
 	const [expanded, setExpanded] = useState(false);
 	const inputSummary = summarizeToolInput(tool.input);
 	const hasChildren = childTools.length > 0;
+	const isRunning = tool.durationMs === undefined;
+	const lastChildHint = !expanded ? getLastChildToolHint(childTools) : null;
 
 	return (
 		<div className="space-y-1">
 			<div
 				className={cn(
 					"rounded-sm border px-2 py-1 flex items-center gap-2",
-					tool.isError ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5",
+					tool.isError
+						? "border-red-500/20 bg-red-500/5"
+						: isRunning
+							? "border-violet-500/30 bg-violet-500/5"
+							: "border-amber-500/20 bg-amber-500/5",
 				)}
 			>
 				{/* Expand/collapse button */}
@@ -223,11 +239,19 @@ function CollapsibleTaskTool({
 						{expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
 					</button>
 				)}
-				<span
-					className={cn("text-[10px] shrink-0", tool.isError ? "text-red-400" : "text-emerald-400")}
-				>
-					{tool.isError ? "✗" : "✓"}
-				</span>
+				{/* Status indicator: spinner for running, checkmark/X for completed */}
+				{isRunning ? (
+					<Loader2 className="w-3 h-3 text-violet-400 animate-spin shrink-0" />
+				) : (
+					<span
+						className={cn(
+							"text-[10px] shrink-0",
+							tool.isError ? "text-red-400" : "text-emerald-400",
+						)}
+					>
+						{tool.isError ? "✗" : "✓"}
+					</span>
+				)}
 				<span className="text-[10px] font-bold text-amber-300 shrink-0">{tool.toolName}</span>
 				{inputSummary && (
 					<span className="text-[9px] font-mono text-muted-foreground/50 truncate min-w-0">
@@ -245,6 +269,14 @@ function CollapsibleTaskTool({
 					</span>
 				)}
 			</div>
+
+			{/* Last child tool hint when collapsed */}
+			{!expanded && lastChildHint && (
+				<div className="ml-6 flex items-center gap-1.5">
+					<span className="text-[9px] text-slate-600">└─</span>
+					<span className="text-[9px] text-amber-400/70 truncate">{lastChildHint}</span>
+				</div>
+			)}
 
 			{/* Expanded child tools */}
 			{expanded && hasChildren && (

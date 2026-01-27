@@ -266,6 +266,7 @@ export function SpecEditorPane({
 
 	// Initialize/destroy CodeMirror editor based on view mode
 	// IMPORTANT: Only recreate editor when viewMode or specId changes, NOT on every spec update
+	// biome-ignore lint/correctness/useExhaustiveDependencies: specId and containerMounted are intentional triggers for editor recreation
 	useEffect(() => {
 		// Only create editor in editor mode
 		if (viewMode !== "editor") {
@@ -401,7 +402,6 @@ export function SpecEditorPane({
 			editorViewRef.current = null;
 		};
 		// Only recreate editor when viewMode, specId, or container mount state changes
-		// biome-ignore lint/correctness/useExhaustiveDependencies: specId and containerMounted are intentional triggers
 	}, [viewMode, specId, containerMounted, editorTheme]);
 
 	// Sync editor content when spec changes (only in editor mode)

@@ -21,6 +21,7 @@ export type BuildTranscriptOptions = {
 };
 
 type ToolStartInfo = {
+	toolName: string;
 	input: Record<string, unknown>;
 	startedAt: number;
 	seq: number;
@@ -62,6 +63,7 @@ export function buildTranscript(
 	const items: TranscriptItem[] = [];
 
 	const toolStartById = new Map<string, ToolStartInfo>();
+	const pendingTaskItemIndex = new Map<string, number>(); // Track pending Task items by toolUseId
 	const msgStreamByKey = new Map<string, MessageStreamInfo>();
 	const activeStreamKeyByRun = new Map<string, string>();
 	let anonStreamCounter = 0;
@@ -92,6 +94,7 @@ export function buildTranscript(
 
 		if (kind === "tool_execution_start" && includeToolCalls) {
 			const toolUseId = typeof e.toolUseId === "string" ? (e.toolUseId as string) : undefined;
+			const toolName = (e.toolName as string) ?? "Tool";
 			if (toolUseId) {
 				// Extract parentToolUseId - check event level first (new format), then payload (legacy)
 				const payload = e.payload as Record<string, unknown> | undefined;
@@ -103,12 +106,34 @@ export function buildTranscript(
 							: undefined;
 
 				toolStartById.set(toolUseId, {
+					toolName,
 					input: (e.input as Record<string, unknown>) ?? {},
 					startedAt: (e.ts as number | undefined) ?? occurredAt,
 					seq: entry.seq,
 					runId,
 					parentToolUseId,
 				});
+
+				// For Task tools, emit a pending item immediately so subagent tools can be grouped under it
+				if (toolName === "Task") {
+					const pendingItem: TranscriptToolCall = {
+						kind: "tool",
+						id: `tool-${toolUseId}`,
+						seq: entry.seq,
+						runId,
+						occurredAt,
+						toolUseId,
+						toolName,
+						input: (e.input as Record<string, unknown>) ?? {},
+						isError: false,
+						attachments: [],
+						// Mark as pending so UI can show appropriate state
+						durationMs: undefined,
+						outputText: undefined,
+					};
+					pendingTaskItemIndex.set(toolUseId, items.length);
+					items.push(pendingItem);
+				}
 			}
 			continue;
 		}
@@ -150,7 +175,15 @@ export function buildTranscript(
 				attachments,
 				parentToolUseId: startInfo?.parentToolUseId,
 			};
-			items.push(item);
+
+			// For Task tools, update the pending item in-place instead of adding a new one
+			const pendingIdx = pendingTaskItemIndex.get(toolUseId);
+			if (pendingIdx !== undefined && toolName === "Task") {
+				items[pendingIdx] = item;
+				pendingTaskItemIndex.delete(toolUseId);
+			} else {
+				items.push(item);
+			}
 			continue;
 		}
 

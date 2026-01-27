@@ -10,6 +10,7 @@ import { RalphProjectRoute } from "@/routes/RalphProjectRoute";
 import { RalphRunRoute } from "@/routes/RalphRunRoute";
 import { SessionChatRoute } from "@/routes/SessionChatRoute";
 import { SessionTimelineRoute } from "@/routes/SessionTimelineRoute";
+import { SpecMarkdownRoute } from "@/routes/SpecMarkdownRoute";
 import { SpecWriterRoute } from "@/routes/SpecWriterRoute";
 import { WorkItemRosterRoute } from "@/routes/WorkItemRosterRoute";
 import { WorkItemsRoute } from "@/routes/WorkItemsRoute";
@@ -89,6 +90,10 @@ export function AppRoutes() {
 					<Route path="/sessions/:sessionId/chat" component={SessionChatRoute} />
 					<Route path="/prompt-shaping/:workspaceId/:taskId" component={PromptShapingRoute} />
 					{/* Spec Writer routes */}
+					<Route
+						path="/projects/:projectId/spec-writer/:specSlug.md"
+						component={SpecMarkdownRoute}
+					/>
 					<Route path="/projects/:projectId/spec-writer/:specSlug" component={SpecWriterRoute} />
 					<Route path="/projects/:projectId/spec-writer" component={SpecWriterRoute} />
 					<Route path="/workspace/:workspaceId/:containerId/:taskId" component={WorkspaceRoute} />

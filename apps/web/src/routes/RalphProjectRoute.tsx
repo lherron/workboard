@@ -2,10 +2,12 @@ import {
 	type ApiClientError,
 	type ProjectRosterMember,
 	type RalphConfigV1,
+	type RalphPreflightResponse,
 	type RalphProjectConfigRecord,
 	type RalphRunRecord,
 	fetchProjectRoster,
 	fetchRalphConfig,
+	fetchRalphPreflight,
 	fetchRalphRuns,
 	fetchWorkspaceSpecs,
 	resetRalphConfig,
@@ -52,6 +54,7 @@ export function RalphProjectRoute() {
 		specSlug: "",
 		mode: "auto",
 	});
+	const [preflight, setPreflight] = useState<RalphPreflightResponse | null>(null);
 
 	const rosterRoleNames = useMemo(() => {
 		const set = new Set<string>();
@@ -64,7 +67,7 @@ export function RalphProjectRoute() {
 			if (!projectId) return;
 			setData((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const [cfg, runs, specs, roster] = await Promise.all([
+				const [cfg, runs, specs, roster, preflightResult] = await Promise.all([
 					fetchRalphConfig(projectId, signal),
 					fetchRalphRuns(projectId, { limit: 50 }, signal),
 					fetchWorkspaceSpecs(projectId, signal).catch(() => ({ specs: [] })),
@@ -72,7 +75,9 @@ export function RalphProjectRoute() {
 						if ((err as ApiClientError).status === 404) return { roster: null } as { roster: null };
 						throw err;
 					}),
+					fetchRalphPreflight(projectId).catch(() => null),
 				]);
+				setPreflight(preflightResult);
 
 				const rosterMembers = roster?.roster?.members ?? [];
 				setData({
@@ -216,7 +221,9 @@ export function RalphProjectRoute() {
 						</button>
 						<button
 							onClick={openStartDialog}
-							className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider border border-cyan-400/40 bg-cyan-400/10 hover:bg-cyan-400/15 transition-colors text-cyan-200"
+							disabled={preflight !== null && !preflight.ready}
+							className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider border border-cyan-400/40 bg-cyan-400/10 hover:bg-cyan-400/15 transition-colors text-cyan-200 disabled:opacity-50 disabled:cursor-not-allowed"
+							title={preflight && !preflight.ready ? "Fix preflight checks first" : undefined}
 						>
 							<Play className="h-3 w-3" />
 							Start
@@ -224,6 +231,67 @@ export function RalphProjectRoute() {
 					</div>
 				</div>
 			</header>
+
+			{preflight && !preflight.ready && (
+				<div className="mx-6 mt-4 border border-amber-500/40 bg-amber-500/5">
+					<div className="px-4 py-3 border-b border-amber-500/20 flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+							<span className="text-[11px] uppercase tracking-wider text-amber-200 font-medium">
+								Preflight Checks Failed
+							</span>
+						</div>
+						<span className="text-[10px] text-amber-200/60">
+							{preflight.checks.filter((c) => c.status === "fail").length} failing,{" "}
+							{preflight.checks.filter((c) => c.status === "warn").length} warnings
+						</span>
+					</div>
+					<div className="p-4 space-y-2">
+						{preflight.checks
+							.filter((c) => c.status !== "pass")
+							.map((check) => (
+								<div
+									key={check.id}
+									className={cn(
+										"flex items-start gap-3 px-3 py-2 text-xs font-mono",
+										check.status === "fail"
+											? "bg-rose-500/10 border-l-2 border-rose-400"
+											: "bg-amber-500/10 border-l-2 border-amber-400",
+									)}
+								>
+									<div className="flex-1">
+										<div
+											className={cn(
+												"font-medium",
+												check.status === "fail" ? "text-rose-200" : "text-amber-200",
+											)}
+										>
+											{check.label}
+										</div>
+										{check.message && (
+											<div className="text-cyan-200/60 mt-0.5">{check.message}</div>
+										)}
+										{check.fix && (
+											<div className="text-cyan-200/40 mt-1 text-[10px]">
+												Fix: {check.fix.method ?? "POST"} {check.fix.endpoint}
+											</div>
+										)}
+									</div>
+									<span
+										className={cn(
+											"px-1.5 py-0.5 text-[9px] uppercase",
+											check.status === "fail"
+												? "bg-rose-500/20 text-rose-300"
+												: "bg-amber-500/20 text-amber-300",
+										)}
+									>
+										{check.status}
+									</span>
+								</div>
+							))}
+					</div>
+				</div>
+			)}
 
 			<div className="flex-1 overflow-auto p-6">
 				{data.loading ? (
@@ -422,7 +490,6 @@ function RalphConfigEditor({
 	const [draft, setDraft] = useState<RalphConfigV1>(record.config);
 	const [dirty, setDirty] = useState(false);
 	const [saving, setSaving] = useState(false);
-	const [showAdvanced, setShowAdvanced] = useState(false);
 
 	useEffect(() => {
 		setDraft(record.config);
@@ -485,12 +552,6 @@ function RalphConfigEditor({
 				</div>
 				<div className="flex items-center gap-2">
 					<button
-						onClick={() => setShowAdvanced((v) => !v)}
-						className="px-3 py-1.5 text-[10px] uppercase tracking-wider border border-indigo-900/40 text-cyan-200/70 hover:text-cyan-200"
-					>
-						{showAdvanced ? "Hide" : "Advanced"}
-					</button>
-					<button
 						onClick={reset}
 						disabled={saving}
 						className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider border border-indigo-900/40 text-cyan-200/70 hover:text-cyan-200 disabled:opacity-50"
@@ -508,163 +569,263 @@ function RalphConfigEditor({
 				</div>
 			</div>
 
-			<div className="p-4 space-y-4">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<label className="flex items-center gap-2 text-xs font-mono text-cyan-200/80">
-						<input
-							type="checkbox"
-							checked={draft.enabled}
-							onChange={(e) => update({ enabled: e.target.checked })}
-						/>
-						<span>enabled</span>
-					</label>
-					<div />
-					<div>
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60 mb-1">
-							plannerRoleName
-						</div>
-						<input
-							list="ralph-roles"
-							value={draft.plannerRoleName}
-							onChange={(e) => update({ plannerRoleName: e.target.value })}
-							className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-						/>
-					</div>
-					<div>
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60 mb-1">
-							builderRoleName
-						</div>
-						<input
-							list="ralph-roles"
-							value={draft.builderRoleName}
-							onChange={(e) => update({ builderRoleName: e.target.value })}
-							className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-						/>
-					</div>
-					<datalist id="ralph-roles">
-						{rosterRoleNames.map((r) => (
-							<option key={r} value={r} />
-						))}
-					</datalist>
-					<div>
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60 mb-1">
-							sessionPolicy
-						</div>
-						<select
-							value={draft.sessionPolicy}
-							onChange={(e) => update({ sessionPolicy: e.target.value as "resume-or-new" | "new" })}
-							className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-						>
-							<option value="resume-or-new">resume-or-new</option>
-							<option value="new">new</option>
-						</select>
-					</div>
-					<div>
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60 mb-1">
-							maxIterations
-						</div>
-						<input
-							type="number"
-							value={draft.maxIterations}
-							onChange={(e) => update({ maxIterations: Number(e.target.value) })}
-							className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-						/>
-					</div>
-					<div>
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60 mb-1">
-							maxConsecutiveFailures
-						</div>
-						<input
-							type="number"
-							value={draft.maxConsecutiveFailures}
-							onChange={(e) => update({ maxConsecutiveFailures: Number(e.target.value) })}
-							className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-						/>
-					</div>
-				</div>
+			<datalist id="ralph-roles">
+				{rosterRoleNames.map((r) => (
+					<option key={r} value={r} />
+				))}
+			</datalist>
 
-				<div className="space-y-2">
-					<div className="text-[10px] uppercase tracking-widest text-cyan-200/60">Prompts</div>
-					<div className="grid grid-cols-1 gap-3">
+			<div className="p-5 space-y-6">
+				{/* Section: Core */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-cyan-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-medium">
+							Core
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-cyan-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<label className="flex items-center gap-3 px-3 py-2.5 bg-black/20 border border-indigo-900/30 cursor-pointer hover:border-cyan-500/30 transition-colors">
+							<input
+								type="checkbox"
+								checked={draft.enabled}
+								onChange={(e) => update({ enabled: e.target.checked })}
+								className="w-4 h-4 accent-cyan-500"
+							/>
+							<span className="text-xs text-cyan-100">Enabled</span>
+						</label>
 						<div>
-							<div className="text-[10px] text-cyan-200/50 mb-1">plan</div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Session Policy
+							</div>
+							<select
+								value={draft.sessionPolicy}
+								onChange={(e) =>
+									update({ sessionPolicy: e.target.value as "resume-or-new" | "new" })
+								}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+							>
+								<option value="resume-or-new">resume-or-new</option>
+								<option value="new">new</option>
+							</select>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Tick Interval (ms)
+							</div>
+							<input
+								type="number"
+								value={draft.tickIntervalMs}
+								onChange={(e) => update({ tickIntervalMs: Number(e.target.value) })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+							/>
+						</div>
+					</div>
+				</section>
+
+				{/* Section: Agent Roles */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-violet-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-violet-300 font-medium">
+							Agent Roles
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-violet-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Planner Role
+							</div>
+							<input
+								list="ralph-roles"
+								value={draft.plannerRoleName}
+								onChange={(e) => update({ plannerRoleName: e.target.value })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+								placeholder="e.g. ralph-planner"
+							/>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Builder Role
+							</div>
+							<input
+								list="ralph-roles"
+								value={draft.builderRoleName}
+								onChange={(e) => update({ builderRoleName: e.target.value })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+								placeholder="e.g. ralph-builder"
+							/>
+						</div>
+					</div>
+				</section>
+
+				{/* Section: Iteration Limits */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-amber-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-amber-300 font-medium">
+							Iteration Limits
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-amber-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Max Plan Iterations
+							</div>
+							<input
+								type="number"
+								min="0"
+								value={draft.maxPlanIterations}
+								onChange={(e) => update({ maxPlanIterations: Number(e.target.value) })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+							/>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Max Build Iterations
+							</div>
+							<input
+								type="number"
+								min="0"
+								value={draft.maxBuildIterations}
+								onChange={(e) => update({ maxBuildIterations: Number(e.target.value) })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+							/>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Max Consecutive Failures
+							</div>
+							<input
+								type="number"
+								min="1"
+								value={draft.maxConsecutiveFailures}
+								onChange={(e) => update({ maxConsecutiveFailures: Number(e.target.value) })}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors"
+							/>
+						</div>
+					</div>
+					<p className="text-[10px] text-amber-200/40 italic">
+						Set to 0 to skip that phase entirely
+					</p>
+				</section>
+
+				{/* Section: Specs & Artifacts */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-emerald-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-emerald-300 font-medium">
+							Specs & Artifacts
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-emerald-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<label className="flex items-center gap-3 px-3 py-2.5 bg-black/20 border border-indigo-900/30 cursor-pointer hover:border-cyan-500/30 transition-colors">
+							<input
+								type="checkbox"
+								checked={draft.spec.materialize}
+								onChange={(e) => updateNested("spec.materialize", e.target.checked)}
+								className="w-4 h-4 accent-cyan-500"
+							/>
+							<span className="text-xs text-cyan-100">Materialize Spec</span>
+						</label>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Spec Directory
+							</div>
+							<input
+								value={draft.spec.dir}
+								onChange={(e) => updateNested("spec.dir", e.target.value)}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors font-mono"
+								placeholder="specs"
+							/>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Implementation Plan Path
+							</div>
+							<input
+								value={draft.artifacts.implementationPlanPath}
+								onChange={(e) => updateNested("artifacts.implementationPlanPath", e.target.value)}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors font-mono"
+								placeholder="IMPLEMENTATION_PLAN.md"
+							/>
+						</div>
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Agents MD Path
+							</div>
+							<input
+								value={draft.artifacts.agentsMdPath}
+								onChange={(e) => updateNested("artifacts.agentsMdPath", e.target.value)}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors font-mono"
+								placeholder="AGENTS.md"
+							/>
+						</div>
+					</div>
+				</section>
+
+				{/* Section: Reporting */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-rose-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-rose-300 font-medium">
+							Reporting
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-rose-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Report Tag
+							</div>
+							<input
+								value={draft.report.tag}
+								onChange={(e) => updateNested("report.tag", e.target.value)}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs focus:border-cyan-500/50 focus:outline-none transition-colors font-mono"
+								placeholder="RALPH_REPORT"
+							/>
+						</div>
+					</div>
+				</section>
+
+				{/* Section: Prompts */}
+				<section className="space-y-4">
+					<div className="flex items-center gap-3">
+						<div className="h-px flex-1 bg-gradient-to-r from-sky-500/50 to-transparent" />
+						<h3 className="text-[11px] uppercase tracking-[0.2em] text-sky-300 font-medium">
+							Prompts
+						</h3>
+						<div className="h-px flex-1 bg-gradient-to-l from-sky-500/50 to-transparent" />
+					</div>
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Plan Prompt
+							</div>
 							<textarea
 								value={draft.prompts.plan}
 								onChange={(e) => updateNested("prompts.plan", e.target.value)}
-								rows={10}
-								className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs font-mono"
+								rows={12}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs font-mono focus:border-cyan-500/50 focus:outline-none transition-colors resize-y"
 							/>
 						</div>
 						<div>
-							<div className="text-[10px] text-cyan-200/50 mb-1">build</div>
+							<div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">
+								Build Prompt
+							</div>
 							<textarea
 								value={draft.prompts.build}
 								onChange={(e) => updateNested("prompts.build", e.target.value)}
-								rows={10}
-								className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs font-mono"
+								rows={12}
+								className="w-full px-3 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs font-mono focus:border-cyan-500/50 focus:outline-none transition-colors resize-y"
 							/>
 						</div>
 					</div>
-				</div>
-
-				{showAdvanced && (
-					<div className="border-t border-indigo-900/30 pt-4 space-y-4">
-						<div className="text-[10px] uppercase tracking-widest text-cyan-200/60">Advanced</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<div className="text-[10px] text-cyan-200/50 mb-1">tickIntervalMs</div>
-								<input
-									type="number"
-									value={draft.tickIntervalMs}
-									onChange={(e) => update({ tickIntervalMs: Number(e.target.value) })}
-									className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-								/>
-							</div>
-							<div>
-								<div className="text-[10px] text-cyan-200/50 mb-1">report.tag</div>
-								<input
-									value={draft.report.tag}
-									onChange={(e) => updateNested("report.tag", e.target.value)}
-									className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-								/>
-							</div>
-							<label className="flex items-center gap-2 text-xs font-mono text-cyan-200/80">
-								<input
-									type="checkbox"
-									checked={draft.spec.materialize}
-									onChange={(e) => updateNested("spec.materialize", e.target.checked)}
-								/>
-								<span>spec.materialize</span>
-							</label>
-							<div>
-								<div className="text-[10px] text-cyan-200/50 mb-1">spec.dir</div>
-								<input
-									value={draft.spec.dir}
-									onChange={(e) => updateNested("spec.dir", e.target.value)}
-									className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-								/>
-							</div>
-							<div>
-								<div className="text-[10px] text-cyan-200/50 mb-1">
-									artifacts.implementationPlanPath
-								</div>
-								<input
-									value={draft.artifacts.implementationPlanPath}
-									onChange={(e) => updateNested("artifacts.implementationPlanPath", e.target.value)}
-									className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-								/>
-							</div>
-							<div>
-								<div className="text-[10px] text-cyan-200/50 mb-1">artifacts.agentsMdPath</div>
-								<input
-									value={draft.artifacts.agentsMdPath}
-									onChange={(e) => updateNested("artifacts.agentsMdPath", e.target.value)}
-									className="w-full px-2 py-2 bg-black/30 border border-indigo-900/40 text-cyan-100 text-xs"
-								/>
-							</div>
-						</div>
-					</div>
-				)}
+				</section>
 			</div>
 		</div>
 	);

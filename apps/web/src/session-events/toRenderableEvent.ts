@@ -229,6 +229,116 @@ export function toRenderableEvent(entry: SessionStreamEntry): RenderableEvent | 
 			};
 		}
 
+		// Agent lifecycle events (pi-compatible)
+		case "agent_start": {
+			const sessionId = getProp<string>(event, "sessionId");
+			return {
+				...base,
+				title: "Agent started",
+				detail: sessionId ? ensureDetail(`Session: ${sessionId}`, "plain") : undefined,
+				status: "start",
+			};
+		}
+		case "agent_end": {
+			const reason = getProp<string>(event, "reason");
+			return {
+				...base,
+				title: "Agent ended",
+				detail: ensureDetail(reason, "plain"),
+				status: "success",
+			};
+		}
+
+		// Turn lifecycle events
+		case "turn_start": {
+			const turnId = getProp<string>(event, "turnId");
+			return {
+				...base,
+				title: "Turn started",
+				detail: turnId ? ensureDetail(`Turn: ${turnId}`, "plain") : undefined,
+				status: "start",
+			};
+		}
+		case "turn_end": {
+			const turnId = getProp<string>(event, "turnId");
+			return {
+				...base,
+				title: "Turn ended",
+				detail: turnId ? ensureDetail(`Turn: ${turnId}`, "plain") : undefined,
+				status: "success",
+			};
+		}
+
+		// Session runtime events (new in CP migration 029)
+		case "continuation_key_observed": {
+			const provider = getProp<string>(event, "provider");
+			return {
+				...base,
+				title: "Continuation key observed",
+				detail: ensureDetail(`Provider: ${provider ?? "unknown"}`, "plain"),
+				status: "success",
+				meta: { provider },
+			};
+		}
+		case "harness_process_started": {
+			const processId = getProp<string>(event, "harnessProcessId");
+			const provider = getProp<string>(event, "provider");
+			const frontend = getProp<string>(event, "frontend");
+			return {
+				...base,
+				title: "Harness process started",
+				detail: ensureDetail(`${frontend ?? "harness"} (${provider ?? "unknown"})`, "plain"),
+				status: "start",
+				meta: { processId, provider, frontend },
+			};
+		}
+		case "harness_process_exited": {
+			const processId = getProp<string>(event, "harnessProcessId");
+			const exitCode = getProp<number>(event, "exitCode");
+			return {
+				...base,
+				title: "Harness process exited",
+				detail:
+					exitCode !== undefined ? ensureDetail(`Exit code: ${exitCode}`, "plain") : undefined,
+				status: exitCode === 0 ? "success" : "error",
+				meta: { processId, exitCode },
+			};
+		}
+		case "tmux_pane_bound": {
+			const pane = getProp<{ paneId?: string }>(event, "tmuxPane");
+			return {
+				...base,
+				title: "Terminal attached",
+				detail: pane?.paneId ? ensureDetail(`Pane: ${pane.paneId}`, "plain") : undefined,
+				status: "success",
+			};
+		}
+		case "tmux_pane_unbound": {
+			return {
+				...base,
+				title: "Terminal detached",
+				status: "success",
+			};
+		}
+		case "ghostty_surface_bound": {
+			const surfaceId = getProp<string>(event, "ghosttySurfaceId");
+			return {
+				...base,
+				title: "Ghostty surface bound",
+				detail: surfaceId
+					? ensureDetail(`Surface: ${surfaceId.slice(0, 8)}...`, "plain")
+					: undefined,
+				status: "success",
+			};
+		}
+		case "ghostty_surface_unbound": {
+			return {
+				...base,
+				title: "Ghostty surface unbound",
+				status: "success",
+			};
+		}
+
 		default: {
 			// Generic, non-crashy fallback. Include a compact JSON payload when possible.
 			const compact = safeStringifyCompact(event as unknown as Record<string, unknown>);

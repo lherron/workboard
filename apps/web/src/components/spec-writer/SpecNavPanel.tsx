@@ -104,6 +104,7 @@ function CreateSpecDialog({
 }) {
 	const [title, setTitle] = useState("");
 	const [templateId, setTemplateId] = useState<SpecTemplateId>(SPEC_TEMPLATES[0].id);
+	const [showTitleError, setShowTitleError] = useState(false);
 
 	// Handle escape/enter keys
 	useEffect(() => {
@@ -113,7 +114,11 @@ function CreateSpecDialog({
 			} else if (e.key === "Enter") {
 				// Avoid grabbing Enter from other focused elements like textarea; this is fine for modal.
 				e.preventDefault();
-				if (title.trim()) onConfirm(title.trim(), templateId);
+				if (title.trim()) {
+					onConfirm(title.trim(), templateId);
+				} else {
+					setShowTitleError(true);
+				}
 			}
 		};
 		window.addEventListener("keydown", handleKeyDown);
@@ -155,11 +160,26 @@ function CreateSpecDialog({
 						<input
 							type="text"
 							value={title}
-							onChange={(e) => setTitle(e.target.value)}
+							onChange={(e) => {
+								setTitle(e.target.value);
+								if (e.target.value.trim()) {
+									setShowTitleError(false);
+								}
+							}}
 							placeholder="Spec title..."
 							autoFocus
-							className="w-full px-3 py-2 text-[13px] font-mono bg-background/50 border border-border/50 rounded-none focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/40"
+							className={`w-full px-3 py-2 text-[13px] font-mono bg-background/50 border rounded-none focus:outline-none placeholder:text-muted-foreground/40 transition-colors ${
+								showTitleError
+									? "border-error/70 focus:border-error bg-error/5"
+									: "border-border/50 focus:border-primary/50"
+							}`}
 						/>
+						{showTitleError && (
+							<div className="flex items-center gap-1.5 text-[11px] text-error mt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+								<span className="text-error/60">›</span>
+								<span>title is required</span>
+							</div>
+						)}
 					</div>
 
 					{/* Templates */}
@@ -206,8 +226,14 @@ function CreateSpecDialog({
 						</button>
 						<button
 							type="button"
-							onClick={() => title.trim() && onConfirm(title.trim(), templateId)}
-							disabled={!title.trim() || isCreating}
+							onClick={() => {
+								if (title.trim()) {
+									onConfirm(title.trim(), templateId);
+								} else {
+									setShowTitleError(true);
+								}
+							}}
+							disabled={isCreating}
 							className="px-3 py-1.5 text-[11px] font-mono bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-50"
 						>
 							{isCreating ? "..." : "create"}

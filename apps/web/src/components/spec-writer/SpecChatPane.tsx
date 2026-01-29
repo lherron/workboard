@@ -43,7 +43,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 		error,
 		sendMessage,
 		isSending,
-		harnessSessionId,
+		hasContinuationKey,
 	} = useArchitectChat({
 		workspaceId,
 		spec,
@@ -97,17 +97,21 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 	const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
 
 	// Handle opening terminal to resume session
+	// Uses CP session ID - terminal router resolves continuation key internally
 	const handleOpenTerminal = useCallback(async () => {
-		// Need harness session ID (not CP session ID) for Claude Code resume
-		if (!harnessSessionId || hasLiveRun) return;
+		const cpSessionId = spec?.metadata.sessionId;
+		if (!cpSessionId || !hasContinuationKey || hasLiveRun) return;
 
 		setIsLaunchingTerminal(true);
 		try {
 			await launchTerminal({
 				projectId: workspaceId,
 				tool: {
-					kind: "shell",
-					command: `asp run architect --resume ${harnessSessionId}`,
+					kind: "clod",
+					resume: {
+						policy: "force",
+						sessionId: cpSessionId, // CP session ID - router resolves continuation key
+					},
 				},
 				statusbar: {
 					right: `architect@${workspaceId}`,
@@ -120,7 +124,7 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 		} finally {
 			setIsLaunchingTerminal(false);
 		}
-	}, [workspaceId, harnessSessionId, hasLiveRun]);
+	}, [workspaceId, spec?.metadata.sessionId, hasContinuationKey, hasLiveRun]);
 
 	// Handle new chat (clear session from spec)
 	const handleNewChat = useCallback(async () => {
@@ -213,13 +217,13 @@ export function SpecChatPane({ workspaceId, spec, onSpecUpdate }: Props) {
 					{hasSession && (
 						<button
 							onClick={handleOpenTerminal}
-							disabled={hasLiveRun || isLaunchingTerminal || !harnessSessionId}
+							disabled={hasLiveRun || isLaunchingTerminal || !hasContinuationKey}
 							className={cn(
 								"p-1.5 rounded transition-colors",
 								"text-slate-500 hover:text-cyan-400 hover:bg-slate-800",
 								"disabled:opacity-40 disabled:cursor-not-allowed",
 							)}
-							title="Resume in terminal"
+							title={hasContinuationKey ? "Resume in terminal" : "No continuation key available"}
 						>
 							{isLaunchingTerminal ? (
 								<Loader2 className="w-4 h-4 animate-spin" />

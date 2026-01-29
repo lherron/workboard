@@ -280,8 +280,9 @@ function getTriageAgent(task: TaskDetail): TriageAgent {
 // Determine if we should resume an existing session
 function shouldResumeSession(task: TaskDetail): boolean {
 	const triageAgent = getTriageAgent(task);
-	// Only resume if explicitly triaged with agent-sdk AND session exists
-	return triageAgent === "agent-sdk" && !!task.sdk_session_id;
+	// Only resume if explicitly triaged with agent-sdk AND CP session exists
+	// Note: Using cp_session_id (canonical CP session) instead of deprecated sdk_session_id
+	return triageAgent === "agent-sdk" && !!task.cp_session_id;
 }
 
 export const TerminalButtons = forwardRef(function TerminalButtons(
@@ -431,8 +432,8 @@ export const TerminalButtons = forwardRef(function TerminalButtons(
 				buildTerminalLaunchRequest(launch, {
 					projectId: workspaceId,
 					tool:
-						canResume && task.sdk_session_id
-							? { resume: { policy: "force", sdkSessionId: task.sdk_session_id } }
+						canResume && task.cp_session_id
+							? { resume: { policy: "force", sessionId: task.cp_session_id } }
 							: undefined,
 					statusbar: { right: `clod@${workspaceId}` },
 					task: { id: task.id, slug: task.path, title: task.title },

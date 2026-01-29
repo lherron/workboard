@@ -764,7 +764,8 @@ export type TerminalLaunchRequest = {
 		kind?: "clod" | "codex" | "shell";
 		resume?: {
 			policy?: "auto" | "force" | "never";
-			sdkSessionId?: string;
+			// CP session ID - terminal router resolves continuation key internally
+			sessionId?: string;
 		};
 		command?: string;
 	};
@@ -1103,8 +1104,14 @@ export async function deleteWorkspaceSpec(projectId: string, specSlug: string): 
 
 const projectRosterMemberSessionSchema = z.object({
 	activeSessionId: z.string().nullable(),
-	harnessSessionId: z.string().nullable().optional(),
 	priorSessionIds: z.array(z.string()).optional(),
+	// New harness continuation info (replaces harnessSessionId in migration 029)
+	harness: z
+		.object({
+			provider: z.string(),
+			continuationKeyPresent: z.boolean(),
+		})
+		.optional(),
 	sessionStatus: z.string().optional(),
 	lastActivityAt: z.number().optional(),
 });

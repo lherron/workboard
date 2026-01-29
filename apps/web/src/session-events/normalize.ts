@@ -14,6 +14,19 @@ export function getEventCategory(kind: string): EventCategory {
 	if (kind.startsWith("message_")) return "message";
 	if (kind.startsWith("permission_")) return "permission";
 	if (kind === "notice") return "notice";
+	// Agent lifecycle events
+	if (kind === "agent_start" || kind === "agent_end") return "run";
+	// Turn lifecycle events
+	if (kind === "turn_start" || kind === "turn_end") return "run";
+	// Session runtime events (new in CP migration 029)
+	if (
+		kind === "continuation_key_observed" ||
+		kind.startsWith("harness_process_") ||
+		kind.startsWith("tmux_pane_") ||
+		kind.startsWith("ghostty_surface_")
+	) {
+		return "other"; // Session-level events, not run-level
+	}
 	return "other";
 }
 

@@ -36,9 +36,10 @@ const POLL_INTERVAL_MS = 5000;
 export type ConciergeState = {
 	isOpen: boolean;
 	isPinned: boolean;
+	/** CP session ID - used for SSE streaming and terminal resume */
 	sessionId: string | null;
-	/** SDK session ID from runs (for terminal resume) */
-	sdkSessionId: string | null;
+	/** Whether the session has a continuation key (for resume capability) */
+	hasContinuationKey: boolean;
 	isConnecting: boolean;
 	isSubmitting: boolean;
 };
@@ -68,7 +69,7 @@ const defaultContext: ConciergeContextValue = {
 	isOpen: false,
 	isPinned: false,
 	sessionId: null,
-	sdkSessionId: null,
+	hasContinuationKey: false,
 	isConnecting: false,
 	isSubmitting: false,
 	runs: [],
@@ -112,7 +113,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 	const pendingSessionIdRef = useRef<string | null>(null);
 
 	const sessionId = member?.session.activeSessionId ?? null;
-	const sdkSessionId = member?.session.harnessSessionId ?? null;
+	const hasContinuationKey = member?.session.harness?.continuationKeyPresent ?? false;
 
 	// Persist open state
 	useEffect(() => {
@@ -231,7 +232,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 			isOpen,
 			isPinned,
 			sessionId,
-			sdkSessionId,
+			hasContinuationKey,
 			isConnecting,
 			isSubmitting,
 			runs: runsForChat,
@@ -248,7 +249,7 @@ export function ConciergeProvider({ children }: ConciergeProviderProps) {
 			isOpen,
 			isPinned,
 			sessionId,
-			sdkSessionId,
+			hasContinuationKey,
 			isConnecting,
 			isSubmitting,
 			runsForChat,

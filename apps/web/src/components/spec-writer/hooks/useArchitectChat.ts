@@ -33,8 +33,8 @@ export type UseArchitectChatResult = {
 	isStreaming: boolean;
 	currentStreamText: string;
 	error: Error | null;
-	/** Harness session ID for resuming in Claude Code terminal */
-	harnessSessionId: string | null;
+	/** Whether a continuation key is available for terminal resume */
+	hasContinuationKey: boolean;
 
 	sendMessage: (prompt: string) => Promise<void>;
 	isSending: boolean;
@@ -168,25 +168,24 @@ export function useArchitectChat({
 		setCurrentStreamText(buildStreamingAssistantText(sortedEntries, lastEntry.runId));
 	}, [sortedEntries, isStreaming]);
 
-	// Extract harness session ID from events (for resuming in Claude Code terminal)
-	const harnessSessionId = useMemo(() => {
+	// Check if continuation key is available (for terminal resume capability)
+	// Look for continuation_key_observed event or check payload.session_id in events
+	const hasContinuationKey = useMemo(() => {
 		for (const entry of sortedEntries) {
-			// The harness session_id is in event.payload.session_id for message events
 			const event = entry.event as Record<string, unknown>;
+			// Check for explicit continuation_key_observed event (new in migration 029)
+			if (event.type === "continuation_key_observed") {
+				debugLog("[ArchitectChat]", "Found continuation_key_observed event");
+				return true;
+			}
+			// Fallback: check for session_id in payload (legacy support)
 			const payload = event.payload as Record<string, unknown> | undefined;
-			const sessionId = payload?.session_id;
-			if (typeof sessionId === "string") {
-				debugLog("[ArchitectChat]", "Found harnessSessionId", sessionId);
-				return sessionId;
+			if (typeof payload?.session_id === "string") {
+				debugLog("[ArchitectChat]", "Found session_id in payload");
+				return true;
 			}
 		}
-		if (sortedEntries.length > 0) {
-			debugLog("[ArchitectChat]", "No harnessSessionId found in", sortedEntries.length, "entries");
-			// Log first entry structure for debugging
-			const first = sortedEntries[0];
-			debugLog("[ArchitectChat]", "First entry event keys:", Object.keys(first.event));
-		}
-		return null;
+		return false;
 	}, [sortedEntries]);
 
 	// Poll for spec updates made by the agent
@@ -321,7 +320,7 @@ Current spec: "${currentSpec.title}" (rev ${currentSpec.rev})
 		isStreaming,
 		currentStreamText,
 		error: streamError || sendError,
-		harnessSessionId,
+		hasContinuationKey,
 		sendMessage,
 		isSending,
 	};

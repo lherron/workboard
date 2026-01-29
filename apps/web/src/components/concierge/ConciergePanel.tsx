@@ -28,7 +28,7 @@ export function ConciergePanel() {
 		isOpen,
 		isPinned,
 		sessionId,
-		sdkSessionId,
+		hasContinuationKey,
 		isConnecting: isLoadingRoster,
 		isSubmitting,
 		runs,
@@ -88,16 +88,20 @@ export function ConciergePanel() {
 	const [isLaunchingTerminal, setIsLaunchingTerminal] = useState(false);
 
 	// Handle opening terminal to resume session
+	// Uses CP session ID - terminal router resolves continuation key internally
 	const handleOpenTerminal = useCallback(async () => {
-		if (!sdkSessionId || hasLiveRun) return;
+		if (!sessionId || !hasContinuationKey || hasLiveRun) return;
 
 		setIsLaunchingTerminal(true);
 		try {
 			await launchTerminal({
 				projectId: PROJECT_ID,
 				tool: {
-					kind: "shell",
-					command: `asp run ui-concierge --resume ${sdkSessionId}`,
+					kind: "clod",
+					resume: {
+						policy: "force",
+						sessionId, // CP session ID - router resolves continuation key
+					},
 				},
 				statusbar: {
 					right: `concierge@${PROJECT_ID}`,
@@ -110,7 +114,7 @@ export function ConciergePanel() {
 		} finally {
 			setIsLaunchingTerminal(false);
 		}
-	}, [sdkSessionId, hasLiveRun]);
+	}, [sessionId, hasContinuationKey, hasLiveRun]);
 
 	const isConnecting = isLoadingRoster || isConnectingSSE;
 	const error = rosterError || sseError;
@@ -165,13 +169,13 @@ export function ConciergePanel() {
 						{sessionId && (
 							<button
 								onClick={handleOpenTerminal}
-								disabled={!sdkSessionId || hasLiveRun || isLaunchingTerminal}
+								disabled={!hasContinuationKey || hasLiveRun || isLaunchingTerminal}
 								className={cn(
 									"p-1.5 rounded transition-colors",
 									"text-slate-500 hover:text-amber-400 hover:bg-slate-800",
 									"disabled:opacity-40 disabled:cursor-not-allowed",
 								)}
-								title={sdkSessionId ? "Resume in terminal" : "No SDK session available"}
+								title={hasContinuationKey ? "Resume in terminal" : "No continuation key available"}
 							>
 								{isLaunchingTerminal ? (
 									<Loader2 className="w-4 h-4 animate-spin" />

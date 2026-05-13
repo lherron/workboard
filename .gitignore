@@ -23,6 +23,8 @@ asp_modules/
 .vscode/
 .idea/
 .claude/
+.agentchat/
+.animata/
 *.swp
 *.swo
 

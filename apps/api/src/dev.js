@@ -4,14 +4,18 @@ import { startServer } from "./server.js";
 
 const repoRoot = path.resolve(import.meta.dir, "../../..");
 
-dotenv.config({ path: path.join(repoRoot, ".env.local") });
-dotenv.config({ path: path.join(repoRoot, ".env") });
+dotenv.config({ path: path.join(repoRoot, ".env.local"), override: true });
+dotenv.config({ path: path.join(repoRoot, ".env"), override: true });
+
+const PORT = 18461;
 
 const cpUrl = process.env.CP_URL || "http://localhost:7420";
-const port = Number(process.env.EXPRESS_PORT || process.env.API_PORT || 5151);
-const allowFallback = !process.env.EXPRESS_PORT && !process.env.API_PORT;
 
-startServer({ port, cpUrl, allowFallback }).catch((err) => {
-	console.error("Failed to start webwrkq api:", err);
+startServer({ port: PORT, cpUrl }).catch((err) => {
+	if (err && err.code === "EADDRINUSE") {
+		console.error(`workboard api: port ${PORT} is already in use; refusing to start`);
+	} else {
+		console.error("Failed to start workboard api:", err);
+	}
 	process.exit(1);
 });

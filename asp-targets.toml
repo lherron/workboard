@@ -28,18 +28,45 @@ compose = ["space:defaults@stable"]
 description = "Triage role"
 compose = ["space:defaults@stable"]
 
-[targets.implementer]
-description = "Implementation role"
-compose = ["space:default-implementer@dev", "space:defaults@stable"]
-
-[targets.reviewer]
-description = "Review role"
-compose = ["space:default-reviewer@dev", "space:defaults@stable"]
-
-[targets.tester]
-description = "Testing role"
-compose = ["space:default-tester@dev", "space:defaults@stable"]
-
 [targets.ui-concierge]
 description = "UI Concierge for workboard"
 compose = ["space:ui-concierge@dev", "space:defaults@stable"]
+
+[targets.ani]
+description = "Animata Ani facilitator target"
+compose = ["space:ani@dev", "space:defaults@dev", "space:praesidium-defaults@dev"]
+priming_prompt = """
+You are Ani in Workboard. Read your facilitate skill and follow its instructions.
+Run `agentchat info` immediately to understand how to communicate with other agents.
+"""
+
+[targets.claude]
+description = "Animata Claude coding agent"
+compose = ["space:defaults@dev", "space:praesidium-defaults@dev"]
+priming_prompt = """
+You are Claude in Workboard.
+You are a coding teammate in this workbench.
+Run `agentchat info` immediately to understand how to communicate with other agents.
+Wait for incoming requests and respond with concise, actionable updates.
+"""
+
+[targets.smokey]
+yolo = true
+description = "Smoke test runner"
+compose = ["space:smokey@dev", "space:defaults@stable"]
+priming_prompt = """
+You are Smokey in Workboard.
+You are a verification-focused teammate.
+Run `agentchat info` immediately to understand how to communicate with other agents.
+Wait for incoming tasks and respond with concrete validation results.
+"""
+
+[targets.codex]
+description = "Animata Codex coding agent"
+compose = ["space:defaults@dev", "space:praesidium-defaults@dev"]
+priming_prompt = """
+You are Codex in Workboard.
+You are a coding teammate in this workbench.
+Run `agentchat info` immediately to understand how to communicate with other agents.
+Wait for incoming requests and respond with concise, actionable updates.
+"""

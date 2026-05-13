@@ -122,7 +122,7 @@ export function createServer({ cpUrl }) {
 	return app;
 }
 
-export function startServer({ port, cpUrl, allowFallback }) {
+export function startServer({ port, cpUrl }) {
 	const app = createServer({ cpUrl });
 
 	return new Promise((resolve, reject) => {
@@ -132,14 +132,6 @@ export function startServer({ port, cpUrl, allowFallback }) {
 			resolve({ app, server, port });
 		});
 
-		server.on("error", (err) => {
-			if (allowFallback && err.code === "EADDRINUSE") {
-				const nextPort = port + 1;
-				console.warn(`port ${port} in use, retrying on ${nextPort}`);
-				startServer({ port: nextPort, cpUrl, allowFallback: false }).then(resolve).catch(reject);
-				return;
-			}
-			reject(err);
-		});
+		server.on("error", reject);
 	});
 }

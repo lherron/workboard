@@ -2,10 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// Workboard API/BFF URL (proxies to control-plane)
-// Default to dev port (18461), override with API_PORT or API_TARGET for other stacks
-const apiTarget =
-  process.env.API_TARGET || `http://localhost:${process.env.API_PORT || 18461}`;
+// Static workboard ports — must match apps/api/src/dev.js. No env overrides
+// (env vars leak between sibling stacks like taskboard and silently misroute).
+const API_PORT = 18461;
+const WEB_PORT = 18460;
+const apiTarget = `http://localhost:${API_PORT}`;
 
 export default defineConfig({
   plugins: [react()],
@@ -17,7 +18,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5160,
+    port: WEB_PORT,
+    strictPort: true,
     host: true,
     allowedHosts: ['max3', 'max3.local', 'max3.tail53cc3b.ts.net', 'max3.lan'],
     proxy: {

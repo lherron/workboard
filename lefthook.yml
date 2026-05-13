@@ -36,5 +36,9 @@ pre-push:
   commands:
     install:
       run: bun install
-    test:
-      run: env -u GIT_DIR -u GIT_WORK_TREE bun run test
+    lint:
+      run: bun run lint
+    typecheck:
+      run: bun run typecheck
+    # NOTE: playwright tests excluded from pre-push (run manually with
+    # `bun run test`). Sibling taskboard repo has the same setup.

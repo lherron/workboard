@@ -1,4 +1,9 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
+
+const webRoot = fileURLToPath(new URL('.', import.meta.url));
+const repoRoot = path.resolve(webRoot, '../..');
 
 const webServerEnv = {
   ...process.env,
@@ -25,12 +30,23 @@ export default defineConfig({
   ],
   // Only start dev server if not using external server
   ...(!useExternalServer && {
-    webServer: {
-      command: 'bun run dev',
-      url: 'http://localhost:18460',
-      reuseExistingServer: !process.env.CI,
-      timeout: 60000,
-      env: webServerEnv,
-    },
+    webServer: [
+      {
+        command: "bun run --filter '@workboard/api' dev",
+        url: 'http://localhost:18461/api/health',
+        cwd: repoRoot,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60000,
+        env: webServerEnv,
+      },
+      {
+        command: 'bun run dev',
+        url: 'http://localhost:18460',
+        cwd: webRoot,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60000,
+        env: webServerEnv,
+      },
+    ],
   }),
 });

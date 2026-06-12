@@ -207,7 +207,7 @@ test.describe("Terminal API Integration", () => {
 	test("terminal API endpoint is reachable through proxy", async ({ request }) => {
 		// This test verifies the Vite proxy is configured correctly
 		// It should reach the control-plane, not 404
-		const response = await request.post("http://localhost:5160/api/terminal/new", {
+		const response = await request.post("/api/terminal/new", {
 			data: {
 				location: "tab",
 				working_directory: "/tmp",

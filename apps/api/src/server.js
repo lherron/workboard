@@ -24,6 +24,10 @@ export function createServer({ cpUrl }) {
 	// Only parse JSON for webhook endpoints so proxied requests keep their body.
 	app.use("/api/webhooks", express.json({ limit: "1mb" }));
 
+	app.get("/api/health", (_req, res) => {
+		res.json({ ok: true });
+	});
+
 	// Serve files from filesystem (for displaying images from Read tool results)
 	app.get("/api/files", (req, res) => {
 		const filePath = req.query.path;

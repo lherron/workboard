@@ -1,5 +1,71 @@
 import { expect, test } from "@playwright/test";
 
+const mockWorkspaces = {
+	workspaces: [
+		{
+			id: "workboard",
+			name: "workboard",
+			root: "/Users/lherron/praesidium/workboard",
+			dbPath: "/Users/lherron/praesidium/var/db/wrkq.db",
+			enabled: true,
+		},
+	],
+};
+
+const mockContainersTree = {
+	projects: [
+		{
+			projectId: "workboard",
+			projectName: "workboard",
+			containers: [],
+		},
+	],
+};
+
+const mockTasks = {
+	tasks: [],
+	projectCount: 1,
+	totalOpenTasks: 0,
+};
+
+async function mockRouteData(page: import("@playwright/test").Page) {
+	await page.route("**/admin/projects/wrkq", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(mockWorkspaces),
+		});
+	});
+
+	await page.route("**/admin/projects/*/roster", async (route) => {
+		await route.fulfill({
+			status: 404,
+			contentType: "application/json",
+			body: JSON.stringify({ error: "No roster configured" }),
+		});
+	});
+
+	await page.route("**/admin/tasks/containers/tree", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(mockContainersTree),
+		});
+	});
+
+	await page.route("**/admin/tasks/tasks?**", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(mockTasks),
+		});
+	});
+}
+
+test.beforeEach(async ({ page }) => {
+	await mockRouteData(page);
+});
+
 test.describe("Route Navigation", () => {
 	test("/ redirects to /projects", async ({ page }) => {
 		await page.goto("/");
@@ -81,8 +147,8 @@ test.describe("Deep Links", () => {
 
 		await expect(page.locator("text=PLANNING BOARD")).toBeVisible({ timeout: 10000 });
 		// Verify the sidebar/controls are present
-		await expect(page.locator("text=SYSTEM READY").or(page.locator("text=SYNCING"))).toBeVisible({
-			timeout: 10000,
-		});
+		await expect(page.locator("text=SYSTEM READY").or(page.locator("text=SYNCING..."))).toBeVisible(
+			{ timeout: 10000 },
+		);
 	});
 });

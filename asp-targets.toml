@@ -2,67 +2,76 @@ schema = 1
 
 [targets.dev]
 description = "Default target"
-compose = ["space:defaults@dev"]
+compose = [ "space:defaults@dev" ]
 
 [targets.ralph-plan]
 description = "Ralph planning loop"
-compose = ["space:ralph-plan-loop@dev", "space:praesidium-defaults@dev"]
+compose = [ "space:ralph-plan-loop@dev", "space:praesidium-defaults@dev" ]
 
 [targets.ralph-build]
 description = "Ralph build loop"
-compose = ["space:ralph-build-loop@dev", "space:praesidium-defaults@dev"]
+compose = [
+  "space:ralph-build-loop@dev",
+  "space:praesidium-defaults@dev"
+]
 
 [targets.hannibal]
 description = "Coordinator persona (hannibal)"
-compose = ["space:hannibal@dev", "space:defaults@dev"]
+compose = [ "space:hannibal@dev", "space:defaults@dev" ]
 
 [targets.coordinator]
 description = "Coordination role"
-compose = ["space:defaults@dev"]
+compose = [ "space:defaults@dev" ]
 
 [targets.triager]
 description = "Triage role"
-compose = ["space:defaults@dev"]
+compose = [ "space:defaults@dev" ]
 
 [targets.ui-concierge]
 description = "UI Concierge for workboard"
-compose = ["space:ui-concierge@dev", "space:defaults@dev"]
+compose = [ "space:ui-concierge@dev", "space:defaults@dev" ]
 
 [targets.ani]
 description = "Animata Ani facilitator target"
-compose = ["space:ani@dev", "space:defaults@dev", "space:praesidium-defaults@dev"]
-priming_prompt = """
+priming = """
 You are Ani in Workboard. Read your facilitate skill and follow its instructions.
 Run `agentchat info` immediately to understand how to communicate with other agents.
 """
+compose = [
+  "space:ani@dev",
+  "space:defaults@dev",
+  "space:praesidium-defaults@dev"
+]
 
 [targets.claude]
 description = "Animata Claude coding agent"
-compose = ["space:defaults@dev", "space:praesidium-defaults@dev"]
-priming_prompt = """
+priming = """
 You are Claude in Workboard.
 You are a coding teammate in this workbench.
 Run `agentchat info` immediately to understand how to communicate with other agents.
 Wait for incoming requests and respond with concise, actionable updates.
 """
+compose = [ "space:defaults@dev", "space:praesidium-defaults@dev" ]
 
 [targets.smokey]
-yolo = true
 description = "Smoke test runner"
-compose = ["space:smokey@dev", "space:defaults@dev"]
-priming_prompt = """
+priming = """
 You are Smokey in Workboard.
 You are a verification-focused teammate.
 Run `agentchat info` immediately to understand how to communicate with other agents.
 Wait for incoming tasks and respond with concrete validation results.
 """
+compose = [ "space:smokey@dev", "space:defaults@dev" ]
+
+  [targets.smokey.provisioning]
+  yolo = true
 
 [targets.codex]
 description = "Animata Codex coding agent"
-compose = ["space:defaults@dev", "space:praesidium-defaults@dev"]
-priming_prompt = """
+priming = """
 You are Codex in Workboard.
 You are a coding teammate in this workbench.
 Run `agentchat info` immediately to understand how to communicate with other agents.
 Wait for incoming requests and respond with concise, actionable updates.
 """
+compose = [ "space:defaults@dev", "space:praesidium-defaults@dev" ]
